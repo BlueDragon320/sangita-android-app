@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sangita Web-Matched Theme Palette -->
+    <color name="sangita_background">#0D1117</color>
+    <color name="sangita_surface">#161B22</color>
+    <color name="sangita_surface_variant">#21262D</color>
+    <color name="sangita_primary">#10B981</color>
+    <color name="sangita_primary_dark">#059669</color>
+    <color name="sangita_on_primary">#000000</color>
+    <color name="sangita_text_primary">#F3F4F6</color>
+    <color name="sangita_text_secondary">#9CA3AF</color>
+    <color name="sangita_text_muted">#6B7280</color>
+    <color name="sangita_border">#30363D</color>
+    <color name="sangita_error">#EF4444</color>
+
+    <!-- Base Colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

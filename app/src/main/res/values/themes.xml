@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Sangita" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/sangita_background</item>
+        <item name="android:navigationBarColor">@color/sangita_background</item>
+        <item name="android:windowBackground">@color/sangita_background</item>
+        <item name="android:colorPrimary">@color/sangita_primary</item>
+    </style>
+</resources>
