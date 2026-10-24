@@ -111,7 +111,7 @@ fun DownloadQueueIconButton(
             Icon(
                 imageVector = Icons.Default.Download,
                 contentDescription = "Downloads",
-                tint = if (activeCount > 0) colors.accent else colors.lavender,
+                tint = if (activeCount > 0) colors.accent else Color.White,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -201,7 +201,7 @@ fun DownloadQueueBottomSheet(
                         Icon(
                             imageVector = Icons.Default.Download,
                             contentDescription = null,
-                            tint = if (hasTasks) colors.accent else colors.lavender,
+                            tint = if (hasTasks) colors.accent else Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }

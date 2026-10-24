@@ -170,7 +170,7 @@ fun HomeScreen(
                                     Icon(
                                         painter = painterResource(id = R.drawable.ic_sangita_brand_logo),
                                         contentDescription = "Sangita Logo",
-                                        tint = colors.lavender,
+                                        tint = Color.White,
                                         modifier = Modifier.size(19.dp)
                                     )
                                 }
@@ -357,7 +357,6 @@ fun HomeScreen(
                                 // 2x Larger Library Card
                                 ActionNavCard(
                                     title = "Library",
-                                    subtitle = "Playlists & tracks",
                                     painter = painterResource(id = R.drawable.ic_folder_music),
                                     modifier = Modifier.weight(1f),
                                     onClick = onNavigateToLibrary
@@ -366,7 +365,6 @@ fun HomeScreen(
                                 // 2x Larger Storage / Data Usage Card
                                 ActionNavCard(
                                     title = dataUsageToday.ifBlank { "0 B" },
-                                    subtitle = "Data Today",
                                     icon = Icons.Default.DataUsage,
                                     modifier = Modifier.weight(1f),
                                     onClick = { viewModel.loadHomeData(force = true) }
@@ -398,7 +396,7 @@ fun HomeScreen(
                                     Icon(
                                         imageVector = Icons.Default.GraphicEq,
                                         contentDescription = null,
-                                        tint = colors.lavender,
+                                        tint = Color.White,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -598,7 +596,6 @@ fun HomeScreen(
 @Composable
 private fun ActionNavCard(
     title: String,
-    subtitle: String,
     modifier: Modifier = Modifier,
     painter: Painter? = null,
     icon: ImageVector? = null,
@@ -607,26 +604,26 @@ private fun ActionNavCard(
     val colors = SangitaThemeColors.current
     Card(
         modifier = modifier
-            .height(88.dp)
+            .height(64.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = colors.card),
         border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(colors.elevated)
                         .border(1.dp, colors.border, CircleShape),
@@ -636,27 +633,19 @@ private fun ActionNavCard(
                         Icon(
                             painter = painter,
                             contentDescription = null,
-                            tint = colors.lavender,
-                            modifier = Modifier.size(24.dp)
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
                         )
                     } else if (icon != null) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = colors.lavender,
-                            modifier = Modifier.size(24.dp)
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = colors.textMuted,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            Column {
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
@@ -666,16 +655,13 @@ private fun ActionNavCard(
                     overflow = TextOverflow.Ellipsis,
                     fontSize = 15.sp
                 )
-                Spacer(modifier = Modifier.height(1.dp))
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.textSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 11.sp
-                )
             }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = colors.textMuted,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -683,13 +669,11 @@ private fun ActionNavCard(
 @Composable
 private fun ActionNavCard(
     title: String,
-    subtitle: String,
     painter: Painter,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) = ActionNavCard(
     title = title,
-    subtitle = subtitle,
     modifier = modifier,
     painter = painter,
     icon = null,
@@ -699,13 +683,11 @@ private fun ActionNavCard(
 @Composable
 private fun ActionNavCard(
     title: String,
-    subtitle: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) = ActionNavCard(
     title = title,
-    subtitle = subtitle,
     modifier = modifier,
     painter = null,
     icon = icon,
@@ -745,14 +727,14 @@ private fun MetricOverviewCard(
                     Icon(
                         painter = painter,
                         contentDescription = null,
-                        tint = colors.lavender,
+                        tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
                 } else if (icon != null) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = colors.lavender,
+                        tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
                 }
