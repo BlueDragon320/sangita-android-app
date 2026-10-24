@@ -27,6 +27,7 @@ data class HomeUiState(
     val isSyncing: Boolean = false,
     val showSettingsSheet: Boolean = false,
     val showDevicesSheet: Boolean = false,
+    val showDownloadSheet: Boolean = false,
     val currentTheme: String = UserPreferences.THEME_AMOLED,
     val errorMessage: String? = null
 )
@@ -221,6 +222,26 @@ class HomeViewModel(
         viewModelScope.launch {
             musicRepository.toggleFavorite(track)
         }
+    }
+
+    val activeDownloads = downloadManager.activeDownloads
+    val activeDownloadsCount = downloadManager.activeDownloadsCount
+    val totalDownloadSpeed = downloadManager.totalSpeedBytesPerSec
+
+    fun openDownloadSheet() {
+        _uiState.update { it.copy(showDownloadSheet = true) }
+    }
+
+    fun closeDownloadSheet() {
+        _uiState.update { it.copy(showDownloadSheet = false) }
+    }
+
+    fun cancelDownload(trackId: String) {
+        downloadManager.cancelDownload(trackId)
+    }
+
+    fun cancelAllDownloads() {
+        downloadManager.cancelAllDownloads()
     }
 
     fun downloadTrack(track: Track) {

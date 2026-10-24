@@ -73,6 +73,8 @@ import coil.request.ImageRequest
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
+import com.sangita.app.ui.components.DownloadQueueBottomSheet
+import com.sangita.app.ui.components.DownloadQueueIconButton
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
@@ -95,6 +97,9 @@ fun LibraryScreen(
     val filteredPlaylists by viewModel.filteredPlaylists.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
     val devices by viewModel.devices.collectAsState()
+    val activeDownloads by viewModel.activeDownloads.collectAsState()
+    val activeDownloadsCount by viewModel.activeDownloadsCount.collectAsState()
+    val totalDownloadSpeed by viewModel.totalDownloadSpeed.collectAsState()
     var showDevicesSheet by remember { mutableStateOf(false) }
 
     val colors = SangitaThemeColors.current
@@ -130,22 +135,33 @@ fun LibraryScreen(
                         color = colors.textPrimary
                     )
 
-                    // Profile avatar circle (clickable to open Settings)
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(colors.cardHover)
-                            .border(1.dp, colors.border, CircleShape)
-                            .clickable { viewModel.openSettingsSheet() },
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = "${viewModel.userInitial}",
-                            color = colors.textPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
+                        // Live Download Queue Button opposite Library
+                        DownloadQueueIconButton(
+                            activeCount = activeDownloadsCount,
+                            onClick = viewModel::openDownloadSheet
                         )
+
+                        // Profile avatar circle (clickable to open Settings)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(colors.cardHover)
+                                .border(1.dp, colors.border, CircleShape)
+                                .clickable { viewModel.openSettingsSheet() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${viewModel.userInitial}",
+                                color = colors.textPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
@@ -468,6 +484,25 @@ fun LibraryScreen(
                 },
                 onDismiss = { showDevicesSheet = false },
                 onRefresh = viewModel::refreshDevices
+            )
+        }
+
+        // Live Download Queue Bottom Sheet
+        if (uiState.showDownloadSheet) {
+            val downloadSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            DownloadQueueBottomSheet(
+                sheetState = downloadSheetState,
+                downloadTasks = activeDownloads,
+                totalSpeedBytesPerSec = totalDownloadSpeed,
+                serverUrl = viewModel.serverUrl,
+                token = viewModel.token,
+                onCancelDownload = viewModel::cancelDownload,
+                onCancelAll = viewModel::cancelAllDownloads,
+                onDismiss = viewModel::closeDownloadSheet,
+                onNavigateToDownloads = {
+                    viewModel.closeDownloadSheet()
+                    onNavigateToDownloads()
+                }
             )
         }
     }

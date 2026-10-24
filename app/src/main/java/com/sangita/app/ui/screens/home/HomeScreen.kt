@@ -83,6 +83,8 @@ import kotlin.math.sin
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
+import com.sangita.app.ui.components.DownloadQueueBottomSheet
+import com.sangita.app.ui.components.DownloadQueueIconButton
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
@@ -111,7 +113,7 @@ fun HomeAmbientAuraCanvas(modifier: Modifier = Modifier) {
         initialValue = 0f,
         targetValue = (2 * Math.PI).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(26000, easing = LinearEasing),
+            animation = tween(28000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "phase"
@@ -124,15 +126,15 @@ fun HomeAmbientAuraCanvas(modifier: Modifier = Modifier) {
                 val p = phase.value
                 val w = size.width
                 val h = size.height
-                val cx = w * 0.45f + (w * 0.22f) * cos(p)
-                val cy = h * 0.22f + (h * 0.12f) * sin(p)
-                val radius = (w + h) * 0.48f
+                val cx = w * 0.5f + (w * 0.15f) * cos(p)
+                val cy = h * 0.20f + (h * 0.08f) * sin(p)
+                val radius = (w + h) * 0.52f
 
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            Color(0xFF0C274C).copy(alpha = 0.45f),
-                            Color(0xFF07172E).copy(alpha = 0.20f),
+                            Color(0xFF0369A1).copy(alpha = 0.25f),
+                            Color(0xFF0C274C).copy(alpha = 0.15f),
                             Color.Transparent
                         ),
                         center = Offset(cx, cy),
@@ -160,6 +162,9 @@ fun HomeScreen(
     val playbackState by viewModel.playbackState.collectAsState()
     val tracksMap by viewModel.tracksMap.collectAsState()
     val devices by viewModel.devices.collectAsState()
+    val activeDownloads by viewModel.activeDownloads.collectAsState()
+    val activeDownloadsCount by viewModel.activeDownloadsCount.collectAsState()
+    val totalDownloadSpeed by viewModel.totalDownloadSpeed.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -218,23 +223,34 @@ fun HomeScreen(
                         containerColor = Color.Transparent
                     ),
                     actions = {
-                        // Profile Avatar Button with Username's First Letter
-                        Box(
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(SangitaThemeColors.current.card)
-                                .border(1.dp, SangitaThemeColors.current.border, CircleShape)
-                                .clickable(onClick = viewModel::openSettingsSheet),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(end = 12.dp)
                         ) {
-                            Text(
-                                text = userInitial,
-                                color = SangitaThemeColors.current.textPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                            // Live Download Manager Icon Button with Badge
+                            DownloadQueueIconButton(
+                                activeCount = activeDownloadsCount,
+                                onClick = viewModel::openDownloadSheet
                             )
+
+                            // Profile Avatar Button with Username's First Letter
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(SangitaThemeColors.current.card)
+                                    .border(1.dp, SangitaThemeColors.current.border, CircleShape)
+                                    .clickable(onClick = viewModel::openSettingsSheet),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = userInitial,
+                                    color = SangitaThemeColors.current.textPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                            }
                         }
                     }
                 )
@@ -586,6 +602,25 @@ fun HomeScreen(
                 onRefresh = viewModel::refreshDevices
             )
         }
+
+        // Live Download Queue Bottom Sheet
+        if (uiState.showDownloadSheet) {
+            val downloadSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            DownloadQueueBottomSheet(
+                sheetState = downloadSheetState,
+                downloadTasks = activeDownloads,
+                totalSpeedBytesPerSec = totalDownloadSpeed,
+                serverUrl = viewModel.serverUrl,
+                token = viewModel.token,
+                onCancelDownload = viewModel::cancelDownload,
+                onCancelAll = viewModel::cancelAllDownloads,
+                onDismiss = viewModel::closeDownloadSheet,
+                onNavigateToDownloads = {
+                    viewModel.closeDownloadSheet()
+                    onNavigateToDownloads()
+                }
+            )
+        }
     }
 }
 }
@@ -614,8 +649,8 @@ private fun ActionNavCard(
             Box(
                 modifier = Modifier
                     .size(26.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(accentColor.copy(alpha = 0.18f)),
+                    .clip(CircleShape)
+                    .background(Color(0xFF182030)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -668,9 +703,9 @@ private fun MetricOverviewCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(30.dp)
                     .clip(CircleShape)
-                    .background(iconBg),
+                    .background(Color(0xFF182030)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

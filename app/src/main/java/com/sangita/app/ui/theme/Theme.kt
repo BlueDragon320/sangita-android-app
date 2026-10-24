@@ -29,16 +29,16 @@ data class SangitaColors(
 
 val LocalSangitaColors = staticCompositionLocalOf {
     SangitaColors(
-        background = Color(0xFF000000),
-        surface = Color(0xFF0C0C0E),
-        card = Color(0xFF18181B),
-        cardHover = Color(0xFF27272A),
+        background = Color(0xFF080B11),
+        surface = Color(0xFF0D111A),
+        card = Color(0xFF111622),
+        cardHover = Color(0xFF182030),
         textPrimary = Color(0xFFFFFFFF),
-        textSecondary = Color(0xFFA1A1AA),
-        textMuted = Color(0xFF71717A),
-        border = Color(0x1AFFFFFF),
-        borderHi = Color(0x33FFFFFF),
-        accent = Color(0xFF34D399)
+        textSecondary = Color(0xFF94A3B8),
+        textMuted = Color(0xFF64748B),
+        border = Color(0xFF1A2234),
+        borderHi = Color(0xFF2D3B55),
+        accent = Color(0xFF38BDF8)
     )
 }
 
@@ -48,54 +48,54 @@ object SangitaThemeColors {
         get() = LocalSangitaColors.current
 }
 
-private val AmoledColorScheme = darkColorScheme(
-    primary = SangitaEmerald,
-    onPrimary = RawSangitaBlack,
-    primaryContainer = SangitaEmeraldDim,
-    onPrimaryContainer = RawSangitaText,
-    secondary = SangitaEmeraldHi,
-    onSecondary = RawSangitaBlack,
-    background = RawSangitaBlack,
-    onBackground = RawSangitaText,
-    surface = RawSangitaSurface,
-    onSurface = RawSangitaText,
-    surfaceVariant = RawSangitaCard,
-    onSurfaceVariant = RawSangitaTextSub,
-    outline = RawSangitaBorder,
+private val ObsidianColorScheme = darkColorScheme(
+    primary = Color(0xFF38BDF8),
+    onPrimary = Color(0xFF080B11),
+    primaryContainer = Color(0xFF0284C7),
+    onPrimaryContainer = Color(0xFFFFFFFF),
+    secondary = Color(0xFF60A5FA),
+    onSecondary = Color(0xFF080B11),
+    background = Color(0xFF080B11),
+    onBackground = Color(0xFFFFFFFF),
+    surface = Color(0xFF0D111A),
+    onSurface = Color(0xFFFFFFFF),
+    surfaceVariant = Color(0xFF111622),
+    onSurfaceVariant = Color(0xFF94A3B8),
+    outline = Color(0xFF1A2234),
     error = SangitaRed
 )
 
 private val MidnightDarkColorScheme = darkColorScheme(
-    primary = Color(0xFF10B981),
-    onPrimary = Color(0xFF0D1117),
-    primaryContainer = Color(0xFF047857),
-    onPrimaryContainer = Color(0xFFF3F4F6),
-    secondary = Color(0xFF34D399),
-    onSecondary = Color(0xFF0D1117),
-    background = Color(0xFF0D1117),
-    onBackground = Color(0xFFF3F4F6),
-    surface = Color(0xFF161B22),
-    onSurface = Color(0xFFF3F4F6),
-    surfaceVariant = Color(0xFF21262D),
-    onSurfaceVariant = Color(0xFF8B949E),
-    outline = Color(0xFF30363D),
+    primary = Color(0xFF38BDF8),
+    onPrimary = Color(0xFF080B11),
+    primaryContainer = Color(0xFF0369A1),
+    onPrimaryContainer = Color(0xFFF0F6FC),
+    secondary = Color(0xFF60A5FA),
+    onSecondary = Color(0xFF080B11),
+    background = Color(0xFF080B11),
+    onBackground = Color(0xFFF0F6FC),
+    surface = Color(0xFF0D111A),
+    onSurface = Color(0xFFF0F6FC),
+    surfaceVariant = Color(0xFF111622),
+    onSurfaceVariant = Color(0xFF94A3B8),
+    outline = Color(0xFF1A2234),
     error = SangitaRed
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF059669),
+    primary = Color(0xFF0284C7),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFA7F3D0),
-    onPrimaryContainer = Color(0xFF065F46),
-    secondary = Color(0xFF10B981),
+    primaryContainer = Color(0xFFBAE6FD),
+    onPrimaryContainer = Color(0xFF0369A1),
+    secondary = Color(0xFF38BDF8),
     onSecondary = Color.White,
-    background = Color(0xFFF1F2F8),
-    onBackground = Color(0xFF18181B),
+    background = Color(0xFFF1F5F9),
+    onBackground = Color(0xFF0F172A),
     surface = Color.White,
-    onSurface = Color(0xFF18181B),
-    surfaceVariant = Color(0xFFE4E4E7),
-    onSurfaceVariant = Color(0xFF52525B),
-    outline = Color(0xFFD4D4D8),
+    onSurface = Color(0xFF0F172A),
+    surfaceVariant = Color(0xFFE2E8F0),
+    onSurfaceVariant = Color(0xFF475569),
+    outline = Color(0xFFCBD5E1),
     error = Color(0xFFDC2626)
 )
 
@@ -108,45 +108,45 @@ fun SangitaTheme(
     val colorScheme = when (themeMode) {
         UserPreferences.THEME_LIGHT -> LightColorScheme
         UserPreferences.THEME_DARK -> MidnightDarkColorScheme
-        else -> AmoledColorScheme
+        else -> ObsidianColorScheme
     }
 
     val customColors = when (themeMode) {
         UserPreferences.THEME_LIGHT -> SangitaColors(
-            background = Color(0xFFF4F4F5),
+            background = Color(0xFFF8FAFC),
             surface = Color(0xFFFFFFFF),
             card = Color(0xFFFFFFFF),
-            cardHover = Color(0xFFE4E4E7),
-            textPrimary = Color(0xFF18181B),
-            textSecondary = Color(0xFF52525B),
-            textMuted = Color(0xFF71717A),
-            border = Color(0xFFE4E4E7),
-            borderHi = Color(0xFFD4D4D8),
-            accent = Color(0xFF059669)
+            cardHover = Color(0xFFF1F5F9),
+            textPrimary = Color(0xFF0F172A),
+            textSecondary = Color(0xFF475569),
+            textMuted = Color(0xFF64748B),
+            border = Color(0xFFE2E8F0),
+            borderHi = Color(0xFFCBD5E1),
+            accent = Color(0xFF0284C7)
         )
         UserPreferences.THEME_DARK -> SangitaColors(
-            background = Color(0xFF0D1117),
-            surface = Color(0xFF161B22),
-            card = Color(0xFF21262D),
-            cardHover = Color(0xFF30363D),
+            background = Color(0xFF080B11),
+            surface = Color(0xFF0D111A),
+            card = Color(0xFF111622),
+            cardHover = Color(0xFF182030),
             textPrimary = Color(0xFFF0F6FC),
-            textSecondary = Color(0xFF8B949E),
-            textMuted = Color(0xFF6E7681),
-            border = Color(0xFF30363D),
-            borderHi = Color(0xFF8B949E),
-            accent = Color(0xFF10B981)
+            textSecondary = Color(0xFF94A3B8),
+            textMuted = Color(0xFF64748B),
+            border = Color(0xFF1A2234),
+            borderHi = Color(0xFF2D3B55),
+            accent = Color(0xFF38BDF8)
         )
         else -> SangitaColors(
-            background = Color(0xFF000000),
-            surface = Color(0xFF0C0C0E),
-            card = Color(0xFF18181B),
-            cardHover = Color(0xFF27272A),
+            background = Color(0xFF080B11),
+            surface = Color(0xFF0D111A),
+            card = Color(0xFF111622),
+            cardHover = Color(0xFF182030),
             textPrimary = Color(0xFFFFFFFF),
-            textSecondary = Color(0xFFA1A1AA),
-            textMuted = Color(0xFF71717A),
-            border = Color(0x1AFFFFFF),
-            borderHi = Color(0x33FFFFFF),
-            accent = Color(0xFF34D399)
+            textSecondary = Color(0xFF94A3B8),
+            textMuted = Color(0xFF64748B),
+            border = Color(0xFF1A2234),
+            borderHi = Color(0xFF2D3B55),
+            accent = Color(0xFF38BDF8)
         )
     }
 
