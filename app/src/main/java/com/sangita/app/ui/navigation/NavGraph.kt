@@ -116,9 +116,21 @@ fun SangitaNavGraph(
             }
             HomeScreen(
                 viewModel = homeVm,
-                onNavigateToLibrary = { navController.navigate(Screen.Library.route) },
-                onNavigateToDownloads = { navController.navigate(Screen.Downloads.route) },
-                onOpenFullPlayer = { navController.navigate(Screen.FullPlayer.route) },
+                onNavigateToLibrary = {
+                    navController.navigate(Screen.Library.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToDownloads = {
+                    navController.navigate(Screen.Downloads.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenFullPlayer = {
+                    navController.navigate(Screen.FullPlayer.route) {
+                        launchSingleTop = true
+                    }
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -143,10 +155,20 @@ fun SangitaNavGraph(
                 viewModel = libraryVm,
                 onPlaylistClick = { playlistName ->
                     val encoded = URLEncoder.encode(playlistName, StandardCharsets.UTF_8.toString())
-                    navController.navigate(Screen.PlaylistDetail.createRoute(encoded))
+                    navController.navigate(Screen.PlaylistDetail.createRoute(encoded)) {
+                        launchSingleTop = true
+                    }
                 },
-                onNavigateToDownloads = { navController.navigate(Screen.Downloads.route) },
-                onOpenFullPlayer = { navController.navigate(Screen.FullPlayer.route) },
+                onNavigateToDownloads = {
+                    navController.navigate(Screen.Downloads.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenFullPlayer = {
+                    navController.navigate(Screen.FullPlayer.route) {
+                        launchSingleTop = true
+                    }
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -176,7 +198,11 @@ fun SangitaNavGraph(
             PlaylistDetailScreen(
                 viewModel = playlistVm,
                 onBackClick = { navController.popBackStack() },
-                onOpenFullPlayer = { navController.navigate(Screen.FullPlayer.route) }
+                onOpenFullPlayer = {
+                    navController.navigate(Screen.FullPlayer.route) {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
 
@@ -193,7 +219,11 @@ fun SangitaNavGraph(
             DownloadsScreen(
                 viewModel = downloadsVm,
                 onBackClick = { navController.popBackStack() },
-                onOpenFullPlayer = { navController.navigate(Screen.FullPlayer.route) }
+                onOpenFullPlayer = {
+                    navController.navigate(Screen.FullPlayer.route) {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
 
@@ -236,7 +266,11 @@ fun SangitaNavGraph(
             PlayerScreen(
                 viewModel = playerVm,
                 onBackClick = { navController.popBackStack() },
-                onOpenLyrics = { navController.navigate(Screen.Lyrics.route) }
+                onOpenLyrics = {
+                    navController.navigate(Screen.Lyrics.route) {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
 

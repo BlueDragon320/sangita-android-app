@@ -59,8 +59,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -121,9 +119,7 @@ fun PlayerScreen(
         .coerceIn(0f, 1f)
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        modifier = Modifier.fillMaxSize()
     ) {
         if (isLandscape) {
         // Landscape Mode: 2-Column Side-by-Side Immersive Layout

@@ -39,8 +39,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,15 +47,8 @@ import coil.compose.AsyncImage
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.formatSeconds
-import com.sangita.app.ui.theme.DarkBackground
-import com.sangita.app.ui.theme.DarkBorder
-import com.sangita.app.ui.theme.DarkSurface
-import com.sangita.app.ui.theme.Emerald500
 import com.sangita.app.ui.theme.ErrorRed
-import com.sangita.app.ui.theme.SangitaCard
-import com.sangita.app.ui.theme.TextMuted
-import com.sangita.app.ui.theme.TextPrimary
-import com.sangita.app.ui.theme.TextSecondary
+import com.sangita.app.ui.theme.SangitaThemeColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,23 +60,22 @@ fun DownloadsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val downloadedTracks by viewModel.downloadedTracks.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
+    val colors = SangitaThemeColors.current
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 modifier = Modifier
                     .statusBarsPadding()
                     .padding(top = 8.dp),
-                title = { Text("Offline Downloads", fontWeight = FontWeight.Bold, color = TextPrimary) },
+                title = { Text("Offline Downloads", fontWeight = FontWeight.Bold, color = colors.textPrimary) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary)
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.background)
             )
         },
         bottomBar = {
@@ -100,7 +90,7 @@ fun DownloadsScreen(
                 )
             }
         },
-        containerColor = DarkBackground
+        containerColor = colors.background
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -116,18 +106,18 @@ fun DownloadsScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = SangitaCard),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                    colors = CardDefaults.cardColors(containerColor = colors.card),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Default.SdStorage, contentDescription = null, tint = Emerald500)
+                            Icon(imageVector = Icons.Default.SdStorage, contentDescription = null, tint = colors.accent)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Local Storage Usage",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
+                                color = colors.textPrimary
                             )
                         }
                         Spacer(modifier = Modifier.height(10.dp))
@@ -135,19 +125,19 @@ fun DownloadsScreen(
                             Text(
                                 text = "Downloaded Music: ${usage.formatBytes(usage.audioBytes)}",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextPrimary
+                                color = colors.textPrimary
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Streaming Cache: ${usage.formatBytes(usage.cacheBytes)}",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
+                                color = colors.textSecondary
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Free Device Space: ${usage.formatBytes(usage.freeDeviceBytes)}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted
+                                color = colors.textMuted
                             )
 
                             // Storage progress meter
@@ -160,8 +150,8 @@ fun DownloadsScreen(
                                     .fillMaxWidth()
                                     .height(6.dp)
                                     .clip(RoundedCornerShape(3.dp)),
-                                color = Emerald500,
-                                trackColor = DarkBorder
+                                color = colors.accent,
+                                trackColor = colors.border
                             )
                         }
                     }
@@ -178,7 +168,7 @@ fun DownloadsScreen(
                             .padding(vertical = 40.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "No downloaded tracks yet.", style = MaterialTheme.typography.bodyLarge, color = TextMuted)
+                        Text(text = "No downloaded tracks yet.", style = MaterialTheme.typography.bodyLarge, color = colors.textMuted)
                     }
                 }
             } else {
@@ -207,6 +197,7 @@ fun DownloadedTrackRow(
     onDelete: () -> Unit
 ) {
     val coverUrl = "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val colors = SangitaThemeColors.current
 
     Row(
         modifier = Modifier
@@ -219,8 +210,8 @@ fun DownloadedTrackRow(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(SangitaCard)
-                .border(1.dp, DarkBorder, RoundedCornerShape(8.dp)),
+                .background(colors.card)
+                .border(1.dp, colors.border, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
@@ -237,14 +228,14 @@ fun DownloadedTrackRow(
             Text(
                 text = track.title,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (isPlaying) Emerald500 else TextPrimary,
+                color = if (isPlaying) colors.accent else colors.textPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "${track.artist} • ${formatSeconds(track.durationSeconds ?: 0.0)}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
+                color = colors.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

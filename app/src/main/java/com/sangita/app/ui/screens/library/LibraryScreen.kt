@@ -57,8 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -109,9 +107,7 @@ fun LibraryScreen(
     }
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             Column(
                 modifier = Modifier
@@ -139,11 +135,13 @@ fun LibraryScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Live Download Queue Button opposite Library
-                        DownloadQueueIconButton(
-                            activeCount = activeDownloadsCount,
-                            onClick = viewModel::openDownloadSheet
-                        )
+                        // Live Download Queue Button opposite Library (only visible when downloading)
+                        if (activeDownloadsCount > 0) {
+                            DownloadQueueIconButton(
+                                activeCount = activeDownloadsCount,
+                                onClick = viewModel::openDownloadSheet
+                            )
+                        }
 
                         // Profile avatar circle (clickable to open Settings)
                         Box(

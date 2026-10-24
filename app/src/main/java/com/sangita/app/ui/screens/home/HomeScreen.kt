@@ -1,12 +1,5 @@
 package com.sangita.app.ui.screens.home
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,23 +56,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.cos
-import kotlin.math.sin
+import com.sangita.app.data.local.preferences.UserPreferences
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
@@ -105,47 +89,6 @@ import com.sangita.app.ui.theme.TextMuted
 import com.sangita.app.ui.theme.TextPrimary
 import com.sangita.app.ui.theme.TextSecondary
 import java.util.Calendar
-
-@Composable
-fun HomeAmbientAuraCanvas(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "home_aura")
-    val phase = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(28000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "phase"
-    )
-
-    Spacer(
-        modifier = modifier
-            .fillMaxSize()
-            .drawBehind {
-                val p = phase.value
-                val w = size.width
-                val h = size.height
-                val cx = w * 0.5f + (w * 0.15f) * cos(p)
-                val cy = h * 0.20f + (h * 0.08f) * sin(p)
-                val radius = (w + h) * 0.52f
-
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF0369A1).copy(alpha = 0.25f),
-                            Color(0xFF0C274C).copy(alpha = 0.15f),
-                            Color.Transparent
-                        ),
-                        center = Offset(cx, cy),
-                        radius = radius
-                    ),
-                    radius = radius,
-                    center = Offset(cx, cy)
-                )
-            }
-    )
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,12 +124,8 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
             .background(SangitaThemeColors.current.background)
     ) {
-        // Subtle deep blue ambient aura moving slowly across the entire screen including top bar and logo
-        HomeAmbientAuraCanvas(modifier = Modifier.fillMaxSize())
-
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -195,13 +134,21 @@ fun HomeScreen(
                         .padding(top = 8.dp),
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Image(
-                                painter = painterResource(id = R.drawable.logo),
-                                contentDescription = "Sangita Logo",
+                            Box(
                                 modifier = Modifier
-                                    .size(34.dp)
+                                    .size(36.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                            )
+                                    .background(SangitaThemeColors.current.card)
+                                    .border(1.dp, SangitaThemeColors.current.border, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_sangita_brand_logo),
+                                    contentDescription = "Sangita Logo",
+                                    tint = SangitaThemeColors.current.accent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
@@ -228,12 +175,6 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.padding(end = 12.dp)
                         ) {
-                            // Live Download Manager Icon Button with Badge
-                            DownloadQueueIconButton(
-                                activeCount = activeDownloadsCount,
-                                onClick = viewModel::openDownloadSheet
-                            )
-
                             // Profile Avatar Button with Username's First Letter
                             Box(
                                 modifier = Modifier
