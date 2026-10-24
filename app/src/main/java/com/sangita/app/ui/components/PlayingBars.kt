@@ -26,10 +26,9 @@ fun PlayingBars(
     barColor: Color = SangitaEmerald,
     isAnimating: Boolean = true
 ) {
-    val phase: Float
-    if (isAnimating) {
+    val animatedPhase = if (isAnimating) {
         val transition = rememberInfiniteTransition(label = "playing_bars")
-        val animatedPhase by transition.animateFloat(
+        transition.animateFloat(
             initialValue = 0f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
@@ -38,12 +37,12 @@ fun PlayingBars(
             ),
             label = "bars_phase"
         )
-        phase = animatedPhase
     } else {
-        phase = 0.25f
+        null
     }
 
     Canvas(modifier = modifier.size(width = 16.dp, height = 14.dp)) {
+        val phase = animatedPhase?.value ?: 0.25f
         val totalW = size.width
         val totalH = size.height
         val barWidth = 2.5.dp.toPx()
@@ -54,17 +53,42 @@ fun PlayingBars(
         val f3 = 0.25f + 0.70f * abs(sin(((phase + 0.56f) * Math.PI * 2).toDouble())).toFloat()
         val f4 = 0.25f + 0.70f * abs(sin(((phase + 0.82f) * Math.PI * 2).toDouble())).toFloat()
 
-        val fractions = listOf(f1, f2, f3, f4)
+        val corner = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
         var x = 0f
-        for (f in fractions) {
-            val barH = totalH * f
-            drawRoundRect(
-                color = barColor,
-                topLeft = Offset(x, totalH - barH),
-                size = Size(barWidth, barH),
-                cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
-            )
-            x += barWidth + spacing
-        }
+
+        val barH1 = totalH * f1
+        drawRoundRect(
+            color = barColor,
+            topLeft = Offset(x, totalH - barH1),
+            size = Size(barWidth, barH1),
+            cornerRadius = corner
+        )
+        x += barWidth + spacing
+
+        val barH2 = totalH * f2
+        drawRoundRect(
+            color = barColor,
+            topLeft = Offset(x, totalH - barH2),
+            size = Size(barWidth, barH2),
+            cornerRadius = corner
+        )
+        x += barWidth + spacing
+
+        val barH3 = totalH * f3
+        drawRoundRect(
+            color = barColor,
+            topLeft = Offset(x, totalH - barH3),
+            size = Size(barWidth, barH3),
+            cornerRadius = corner
+        )
+        x += barWidth + spacing
+
+        val barH4 = totalH * f4
+        drawRoundRect(
+            color = barColor,
+            topLeft = Offset(x, totalH - barH4),
+            size = Size(barWidth, barH4),
+            cornerRadius = corner
+        )
     }
 }

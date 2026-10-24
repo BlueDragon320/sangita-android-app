@@ -783,7 +783,7 @@ class PlaybackController(
     }
 
     companion object {
-        private const val PROGRESS_POLL_INTERVAL_MS = 60L
+        private const val PROGRESS_POLL_INTERVAL_MS = 500L
         private const val AUDIO_TRACK_LATENCY_OFFSET_MS = 180L
     }
 }

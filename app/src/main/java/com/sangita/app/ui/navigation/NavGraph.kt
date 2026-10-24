@@ -118,16 +118,12 @@ fun SangitaNavGraph(
                 viewModel = homeVm,
                 onNavigateToLibrary = {
                     navController.navigate(Screen.Library.route) {
-                        popUpTo(Screen.Home.route) { saveState = true }
                         launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 onNavigateToDownloads = {
                     navController.navigate(Screen.Downloads.route) {
-                        popUpTo(Screen.Home.route) { saveState = true }
                         launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 onOpenFullPlayer = {
@@ -165,11 +161,10 @@ fun SangitaNavGraph(
                 },
                 onNavigateToDownloads = {
                     navController.navigate(Screen.Downloads.route) {
-                        popUpTo(Screen.Home.route) { saveState = true }
                         launchSingleTop = true
-                        restoreState = true
                     }
                 },
+                onBackClick = { navController.popBackStack() },
                 onOpenFullPlayer = {
                     navController.navigate(Screen.FullPlayer.route) {
                         launchSingleTop = true

@@ -128,7 +128,7 @@ fun DownloadQueueIconButton(
             ) {
                 Text(
                     text = if (activeCount > 9) "9+" else "$activeCount",
-                    color = colors.accent,
+                    color = colors.buttonContent,
                     fontSize = 8.5.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,

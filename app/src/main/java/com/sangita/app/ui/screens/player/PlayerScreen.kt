@@ -79,9 +79,11 @@ import com.sangita.app.ui.components.findActivity
 import com.sangita.app.ui.components.formatSeconds
 import com.sangita.app.ui.theme.DarkBackground
 import com.sangita.app.ui.theme.DarkBorder
+import com.sangita.app.ui.theme.DeepNavyBlue
 import com.sangita.app.ui.theme.DeepOceanBlue
 import com.sangita.app.ui.theme.Emerald500
 import com.sangita.app.ui.theme.FavoritePink
+import com.sangita.app.ui.theme.SoftSteelBlue
 import com.sangita.app.ui.theme.TextMuted
 import com.sangita.app.ui.theme.TextPrimary
 import com.sangita.app.ui.theme.TextSecondary
@@ -280,9 +282,9 @@ fun PlayerScreen(
                             viewModel.seekTo(targetMs)
                         },
                         colors = SliderDefaults.colors(
-                            thumbColor = Emerald500,
-                            activeTrackColor = Emerald500,
-                            inactiveTrackColor = DeepOceanBlue
+                            thumbColor = DeepNavyBlue,
+                            activeTrackColor = DeepNavyBlue,
+                            inactiveTrackColor = SoftSteelBlue
                         ),
                         modifier = Modifier.fillMaxWidth().height(24.dp)
                     )
@@ -330,14 +332,14 @@ fun PlayerScreen(
                             if (state.isBuffering) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(26.dp),
-                                    color = Color.White,
+                                    color = DeepNavyBlue,
                                     strokeWidth = 2.5.dp
                                 )
                             } else {
                                 Icon(
                                     imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                     contentDescription = if (state.isPlaying) "Pause" else "Play",
-                                    tint = Color.White,
+                                    tint = DeepNavyBlue,
                                     modifier = Modifier.size(32.dp)
                                 )
                             }
@@ -508,9 +510,9 @@ fun PlayerScreen(
                     viewModel.seekTo(targetMs)
                 },
                 colors = SliderDefaults.colors(
-                    thumbColor = Emerald500,
-                    activeTrackColor = Emerald500,
-                    inactiveTrackColor = DeepOceanBlue
+                    thumbColor = DeepNavyBlue,
+                    activeTrackColor = DeepNavyBlue,
+                    inactiveTrackColor = SoftSteelBlue
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -564,14 +566,14 @@ fun PlayerScreen(
                         if (state.isBuffering) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(32.dp),
-                                color = Color.White,
+                                color = DeepNavyBlue,
                                 strokeWidth = 3.dp
                             )
                         } else {
                             Icon(
                                 imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = if (state.isPlaying) "Pause" else "Play",
-                                tint = Color.White,
+                                tint = DeepNavyBlue,
                                 modifier = Modifier.size(38.dp)
                             )
                         }

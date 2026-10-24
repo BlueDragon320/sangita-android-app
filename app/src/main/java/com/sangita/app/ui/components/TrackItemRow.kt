@@ -4,8 +4,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -51,6 +52,7 @@ import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.theme.SangitaThemeColors
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackItemRow(
     track: Track,
@@ -99,15 +101,13 @@ fun TrackItemRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (isPlayingThisTrack) colors.elevated.copy(alpha = 0.5f) else Color.Transparent)
-            .pointerInput(track.id) {
-                detectTapGestures(
-                    onTap = { onClick() },
-                    onLongPress = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isDownloadRevealed = true
-                    }
-                )
-            }
+            .combinedClickable(
+                onClick = { onClick() },
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    isDownloadRevealed = true
+                }
+            )
             .padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -182,13 +182,9 @@ fun TrackItemRow(
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
                     .background(colors.accent)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = {
-                                isDownloadRevealed = false
-                                onDownloadClick()
-                            }
-                        )
+                    .clickable {
+                        isDownloadRevealed = false
+                        onDownloadClick()
                     }
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center

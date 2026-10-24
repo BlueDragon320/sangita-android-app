@@ -1,5 +1,8 @@
 package com.sangita.app.domain.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class PlaybackState(
     val currentTrack: Track? = null,
     val isPlaying: Boolean = false,

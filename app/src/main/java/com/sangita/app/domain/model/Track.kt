@@ -1,7 +1,9 @@
 package com.sangita.app.domain.model
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 
+@Immutable
 @Serializable
 data class Track(
     val id: String,                    // e.g. "Rock/Song.mp3" or "Library/Track.flac"

@@ -42,9 +42,11 @@ import coil.request.ImageRequest
 import com.sangita.app.domain.model.PlaybackState
 import com.sangita.app.ui.theme.DarkBorder
 import com.sangita.app.ui.theme.DarkSurface
+import com.sangita.app.ui.theme.DeepNavyBlue
 import com.sangita.app.ui.theme.Emerald500
 import com.sangita.app.ui.theme.SangitaCard
 import com.sangita.app.ui.theme.SangitaThemeColors
+import com.sangita.app.ui.theme.SoftSteelBlue
 import com.sangita.app.ui.theme.TextPrimary
 import com.sangita.app.ui.theme.TextSecondary
 
@@ -86,14 +88,14 @@ fun MiniPlayer(
             .border(1.dp, colors.border, RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
             .clickable(onClick = onClick)
     ) {
-        // Subtle restrained blue progress indicator
+        // Subtle restrained blue progress indicator (#032F72 active progress over #66A3BF track)
         LinearProgressIndicator(
             progress = { progress },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(2.dp),
-            color = colors.accent,
-            trackColor = colors.buttonBg
+            color = DeepNavyBlue,
+            trackColor = SoftSteelBlue
         )
 
         Row(

@@ -29,7 +29,8 @@ data class SangitaColors(
     val accent: Color,
     val auraBlue: Color,
     val lavender: Color,
-    val buttonBg: Color = DeepOceanBlue
+    val buttonBg: Color = SoftSteelBlue,
+    val buttonContent: Color = DeepNavyBlue
 )
 
 val LocalSangitaColors = staticCompositionLocalOf {
@@ -48,7 +49,8 @@ val LocalSangitaColors = staticCompositionLocalOf {
         accent = AmbientAccentBlue,
         auraBlue = AmbientAuraBlue,
         lavender = AmbientLavender,
-        buttonBg = DeepOceanBlue
+        buttonBg = SoftSteelBlue,
+        buttonContent = DeepNavyBlue
     )
 }
 
@@ -141,7 +143,8 @@ fun SangitaTheme(
             accent = AmbientAccentBlue,
             auraBlue = AmbientAuraBlue,
             lavender = AmbientLavender,
-            buttonBg = DeepOceanBlue
+            buttonBg = SoftSteelBlue,
+            buttonContent = DeepNavyBlue
         )
         UserPreferences.THEME_AMOLED -> SangitaColors(
             background = Color(0xFF000000),
@@ -158,7 +161,8 @@ fun SangitaTheme(
             accent = AmbientAccentBlue,
             auraBlue = AmbientAuraBlue,
             lavender = AmbientLavender,
-            buttonBg = DeepOceanBlue
+            buttonBg = SoftSteelBlue,
+            buttonContent = DeepNavyBlue
         )
         UserPreferences.THEME_DARK -> SangitaColors(
             background = AmbientBackground,
@@ -175,7 +179,8 @@ fun SangitaTheme(
             accent = AmbientAccentBlue,
             auraBlue = AmbientAuraBlue,
             lavender = AmbientLavender,
-            buttonBg = DeepOceanBlue
+            buttonBg = SoftSteelBlue,
+            buttonContent = DeepNavyBlue
         )
         else -> SangitaColors(
             background = AmbientBackground,
@@ -192,7 +197,8 @@ fun SangitaTheme(
             accent = AmbientAccentBlue,
             auraBlue = AmbientAuraBlue,
             lavender = AmbientLavender,
-            buttonBg = DeepOceanBlue
+            buttonBg = SoftSteelBlue,
+            buttonContent = DeepNavyBlue
         )
     }
 

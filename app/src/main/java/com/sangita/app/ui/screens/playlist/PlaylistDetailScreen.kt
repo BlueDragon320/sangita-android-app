@@ -88,6 +88,10 @@ fun PlaylistDetailScreen(
     var showDevicesSheet by remember { mutableStateOf(false) }
     val username = viewModel.userPreferences.getUsername() ?: "User"
 
+    val currentPlayingTrackId = remember(playbackState.currentTrack?.id) {
+        playbackState.currentTrack?.id
+    }
+
     val totalDurationSeconds = tracks.mapNotNull { it.durationSeconds }.sum()
     val themeColors = SangitaThemeColors.current
     val isLight = themeColors.background.luminance() > 0.5f
@@ -277,7 +281,7 @@ fun PlaylistDetailScreen(
                         serverUrl = viewModel.serverUrl,
                         token = viewModel.token,
                         index = index + 1,
-                        isPlayingThisTrack = playbackState.currentTrack?.id == track.id,
+                        isPlayingThisTrack = currentPlayingTrackId == track.id,
                         onClick = { viewModel.playTrack(track) },
                         onToggleFavorite = { viewModel.toggleFavorite(track) },
                         onDownloadClick = { viewModel.downloadTrack(track) },

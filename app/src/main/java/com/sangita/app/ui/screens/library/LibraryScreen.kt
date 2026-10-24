@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -87,6 +88,7 @@ fun LibraryScreen(
     viewModel: LibraryViewModel,
     onPlaylistClick: (String) -> Unit,
     onNavigateToDownloads: () -> Unit = {},
+    onBackClick: () -> Unit = {},
     onOpenFullPlayer: () -> Unit,
     onLogout: () -> Unit = {}
 ) {
@@ -102,6 +104,10 @@ fun LibraryScreen(
 
     val colors = SangitaThemeColors.current
 
+    val currentPlayingTrackId = remember(playbackState.currentTrack?.id) {
+        playbackState.currentTrack?.id
+    }
+
     val regularPlaylists = remember(filteredPlaylists) {
         filteredPlaylists.filter { !it.isFavorites && !it.name.equals("Favorites", ignoreCase = true) }
     }
@@ -116,20 +122,32 @@ fun LibraryScreen(
                     .statusBarsPadding()
                     .padding(top = 8.dp)
             ) {
-                // Top Bar: Large bold 'Library' title + Profile avatar circle (NO History icon)
+                // Top Bar: Back button + Large bold 'Library' title + Profile avatar circle (NO History icon)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                        .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "Library",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.textPrimary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = colors.textPrimary
+                            )
+                        }
+                        Text(
+                            text = "Library",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.textPrimary
+                        )
+                    }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -365,7 +383,7 @@ fun LibraryScreen(
                                 track = track,
                                 serverUrl = viewModel.serverUrl,
                                 token = viewModel.token,
-                                isPlayingThisTrack = playbackState.currentTrack?.id == track.id,
+                                isPlayingThisTrack = currentPlayingTrackId == track.id,
                                 onClick = { viewModel.playTrack(track) },
                                 onDownloadClick = { viewModel.downloadTrack(track) },
                                 onToggleFavorite = { viewModel.toggleFavorite(track) },

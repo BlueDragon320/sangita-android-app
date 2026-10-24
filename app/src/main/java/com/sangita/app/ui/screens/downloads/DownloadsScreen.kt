@@ -36,6 +36,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +62,10 @@ fun DownloadsScreen(
     val downloadedTracks by viewModel.downloadedTracks.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
     val colors = SangitaThemeColors.current
+
+    val currentPlayingTrackId = remember(playbackState.currentTrack?.id) {
+        playbackState.currentTrack?.id
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -177,7 +182,7 @@ fun DownloadsScreen(
                         track = track,
                         serverUrl = viewModel.serverUrl,
                         token = viewModel.token,
-                        isPlaying = playbackState.currentTrack?.id == track.id,
+                        isPlaying = currentPlayingTrackId == track.id,
                         onClick = { viewModel.playTrack(track) },
                         onDelete = { viewModel.deleteDownloadedTrack(track) }
                     )

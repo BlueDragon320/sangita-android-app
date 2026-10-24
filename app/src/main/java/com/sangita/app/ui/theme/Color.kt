@@ -17,13 +17,16 @@ val AmbientTextPrimary = Color(0xFFF1F2F7)     // Primary text
 val AmbientTextSecondary = Color(0xFF9299AE)   // Secondary text
 val AmbientTextMuted = Color(0xFF656D83)       // Muted text
 
-val DeepOceanBlue = Color(0xFF086288)       // Button/container background
-val GlowIceBlue = Color(0xFF97D7FF)         // Inside button / accent highlight
+val SoftSteelBlue = Color(0xFF66A3BF)          // Outer container / button background (#66A3BF)
+val DeepNavyBlue = Color(0xFF032F72)           // Inside button glyph / text / active accent (#032F72)
 
-val AmbientAccentBlue = GlowIceBlue         // Glow Ice Blue #97D7FF accent
-val AmbientAuraBlue = Color(0xFF243F87)        // Soft ambient blue glow
+val DeepOceanBlue = SoftSteelBlue              // Backward-compatibility alias
+val GlowIceBlue = SoftSteelBlue                // Backward-compatibility alias
+
+val AmbientAccentBlue = SoftSteelBlue          // Soft Steel Blue #66A3BF accent
+val AmbientAuraBlue = Color(0xFF142B4E)        // Soft ambient blue glow
 val AmbientLavender = Color(0xFF9A9FE8)        // Muted lavender
-val LightBlueAccent = GlowIceBlue           // Glow Ice Blue #97D7FF
+val LightBlueAccent = SoftSteelBlue            // Soft Steel Blue #66A3BF
 
 // Backward-compatible Raw Static Values
 val RawSangitaBlack = Color(0xFF000000)
@@ -38,9 +41,9 @@ val RawSangitaBorder = AmbientBorder
 val RawSangitaBorderHi = AmbientBorderHi
 
 // Static highlights & constants
-val SangitaEmerald = GlowIceBlue            // Glow Ice Blue #97D7FF for active highlights, lyrics & devices
-val SangitaEmeraldHi = Color(0xFFD4ECF7)
-val SangitaEmeraldDim = Color(0xFF82B8D4)
+val SangitaEmerald = SoftSteelBlue             // Soft Steel Blue #66A3BF for active highlights, lyrics & devices
+val SangitaEmeraldHi = Color(0xFF93C0D6)
+val SangitaEmeraldDim = Color(0xFF4A7A92)
 val SangitaZinc300 = AmbientTextSecondary
 
 val SangitaRed = Color(0xFFEF4444)
@@ -59,7 +62,7 @@ val MetricAmber = AmbientTextPrimary
 val MetricAmberBg = AmbientElevated
 val MetricPink = AmbientLavender
 val MetricPinkBg = AmbientElevated
-val Emerald500 = GlowIceBlue
+val Emerald500 = SoftSteelBlue
 val EmeraldDim = SangitaEmeraldDim
 
 // Dynamic Composable Theme Properties - read from LocalSangitaColors for instant theme reaction
@@ -182,3 +185,8 @@ val SangitaButtonBg: Color
     @Composable
     @ReadOnlyComposable
     get() = LocalSangitaColors.current.buttonBg
+
+val SangitaButtonContent: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalSangitaColors.current.buttonContent

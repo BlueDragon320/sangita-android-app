@@ -73,6 +73,7 @@ import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
 import com.sangita.app.ui.theme.AmbientAuraBlue
+import com.sangita.app.ui.theme.DeepNavyBlue
 import com.sangita.app.ui.theme.SangitaThemeColors
 import java.util.Calendar
 
@@ -127,6 +128,10 @@ fun HomeScreen(
     val totalDownloadSpeed by viewModel.totalDownloadSpeed.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val colors = SangitaThemeColors.current
+
+    val currentPlayingTrackId = remember(playbackState.currentTrack?.id) {
+        playbackState.currentTrack?.id
+    }
 
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greeting = when {
@@ -295,7 +300,7 @@ fun HomeScreen(
                         shape = RoundedCornerShape(22.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = colors.buttonBg,
-                            contentColor = colors.accent
+                            contentColor = DeepNavyBlue
                         ),
                         modifier = Modifier.height(46.dp)
                     ) {
@@ -517,7 +522,7 @@ fun HomeScreen(
                                 serverUrl = viewModel.serverUrl,
                                 token = viewModel.token,
                                 index = index + 1,
-                                isPlayingThisTrack = playbackState.currentTrack?.id == domainTrack.id,
+                                isPlayingThisTrack = currentPlayingTrackId == domainTrack.id,
                                 playCount = topTrack.playCount,
                                 onClick = { viewModel.playTrack(domainTrack, allTopTracksDomain) },
                                 onDownloadClick = { viewModel.downloadTrack(domainTrack) },
