@@ -28,7 +28,7 @@ data class HomeUiState(
     val showSettingsSheet: Boolean = false,
     val showDevicesSheet: Boolean = false,
     val showDownloadSheet: Boolean = false,
-    val currentTheme: String = UserPreferences.THEME_AMOLED,
+    val currentTheme: String = UserPreferences.THEME_DARK,
     val errorMessage: String? = null
 )
 

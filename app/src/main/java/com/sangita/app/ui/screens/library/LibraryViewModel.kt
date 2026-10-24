@@ -31,7 +31,7 @@ data class LibraryUiState(
     val showSettingsSheet: Boolean = false,
     val showDownloadSheet: Boolean = false,
     val connectedDomain: String = "",
-    val currentTheme: String = UserPreferences.THEME_AMOLED,
+    val currentTheme: String = UserPreferences.THEME_DARK,
     val isSyncing: Boolean = false,
     val username: String = ""
 )

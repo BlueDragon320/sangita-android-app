@@ -63,7 +63,7 @@ class UserPreferences(context: Context) {
     }
 
     fun getTheme(): String {
-        return prefs.getString(KEY_THEME, THEME_AMOLED) ?: THEME_AMOLED
+        return prefs.getString(KEY_THEME, THEME_DARK) ?: THEME_DARK
     }
 
     fun setTheme(theme: String) {

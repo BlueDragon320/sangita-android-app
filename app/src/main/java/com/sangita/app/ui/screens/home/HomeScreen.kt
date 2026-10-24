@@ -1,5 +1,11 @@
 package com.sangita.app.ui.screens.home
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,20 +34,17 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -56,6 +59,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -63,32 +69,62 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.cos
+import kotlin.math.sin
 import com.sangita.app.data.local.preferences.UserPreferences
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.DownloadQueueBottomSheet
-import com.sangita.app.ui.components.DownloadQueueIconButton
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
-import com.sangita.app.ui.theme.DarkBackground
-import com.sangita.app.ui.theme.DarkBorder
-import com.sangita.app.ui.theme.Emerald500
-import com.sangita.app.ui.theme.MetricAmber
-import com.sangita.app.ui.theme.MetricAmberBg
-import com.sangita.app.ui.theme.MetricBlue
-import com.sangita.app.ui.theme.MetricBlueBg
-import com.sangita.app.ui.theme.MetricEmerald
-import com.sangita.app.ui.theme.MetricEmeraldBg
-import com.sangita.app.ui.theme.MetricPink
-import com.sangita.app.ui.theme.MetricPinkBg
-import com.sangita.app.ui.theme.SangitaCard
+import com.sangita.app.ui.theme.AmbientAuraBlue
 import com.sangita.app.ui.theme.SangitaThemeColors
-import com.sangita.app.ui.theme.TextMuted
-import com.sangita.app.ui.theme.TextPrimary
-import com.sangita.app.ui.theme.TextSecondary
 import java.util.Calendar
+
+@Composable
+fun AmbientAuraCanvas(
+    modifier: Modifier = Modifier
+) {
+    val transition = rememberInfiniteTransition(label = "ambient_glow")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(16000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "drift_phase"
+    )
+
+    Spacer(
+        modifier = modifier
+            .fillMaxSize()
+            .drawBehind {
+                val w = size.width
+                val h = size.height
+                // Soft deep-blue atmospheric glow drifting gently in the upper-middle area
+                val cx = w * 0.50f + (w * 0.08f) * cos(phase)
+                val cy = h * 0.24f + (h * 0.05f) * sin(phase)
+                val radius = (w + h) * 0.44f
+
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            AmbientAuraBlue.copy(alpha = 0.28f),
+                            AmbientAuraBlue.copy(alpha = 0.10f),
+                            Color.Transparent
+                        ),
+                        center = Offset(cx, cy),
+                        radius = radius
+                    ),
+                    radius = radius,
+                    center = Offset(cx, cy)
+                )
+            }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +145,7 @@ fun HomeScreen(
     val activeDownloadsCount by viewModel.activeDownloadsCount.collectAsState()
     val totalDownloadSpeed by viewModel.totalDownloadSpeed.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val colors = SangitaThemeColors.current
 
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greeting = when {
@@ -124,77 +161,91 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SangitaThemeColors.current.background)
+            .background(colors.background)
     ) {
+        // Atmospheric deep-blue glow drift behind content
+        AmbientAuraCanvas(modifier = Modifier.fillMaxSize())
+
         Scaffold(
             topBar = {
-                TopAppBar(
+                Column(
                     modifier = Modifier
+                        .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(top = 8.dp),
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(SangitaThemeColors.current.card)
-                                    .border(1.dp, SangitaThemeColors.current.border, RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_sangita_brand_logo),
-                                    contentDescription = "Sangita Logo",
-                                    tint = SangitaThemeColors.current.accent,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                ) {
+                    TopAppBar(
+                        modifier = Modifier.padding(top = 4.dp),
+                        title = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(colors.elevated)
+                                        .border(1.dp, colors.border, RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_sangita_brand_logo),
+                                        contentDescription = "Sangita Logo",
+                                        tint = colors.lavender,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "SANGITA",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colors.textPrimary,
+                                        letterSpacing = 1.5.sp,
+                                        fontSize = 15.sp
+                                    )
+                                    Text(
+                                        text = "$greeting, ${uiState.username}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = colors.textSecondary,
+                                        fontSize = 12.sp
+                                    )
+                                }
                             }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "SANGITA",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary,
-                                    letterSpacing = 1.sp
-                                )
-                                Text(
-                                    text = "$greeting, ${uiState.username}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = TextMuted
-                                )
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent
+                        ),
+                        actions = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.padding(end = 12.dp)
+                            ) {
+                                // Profile Avatar Button with Username's First Letter
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.elevated)
+                                        .border(1.dp, colors.border, CircleShape)
+                                        .clickable(onClick = viewModel::openSettingsSheet),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = userInitial,
+                                        color = colors.textPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                }
                             }
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
-                    ),
-                    actions = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.padding(end = 12.dp)
-                        ) {
-                            // Profile Avatar Button with Username's First Letter
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(SangitaThemeColors.current.card)
-                                    .border(1.dp, SangitaThemeColors.current.border, CircleShape)
-                                    .clickable(onClick = viewModel::openSettingsSheet),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = userInitial,
-                                    color = SangitaThemeColors.current.textPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
-                            }
-                        }
-                    }
-                )
+                    )
+                    // Fine divider beneath top header
+                    HorizontalDivider(
+                        color = colors.border,
+                        thickness = 1.dp
+                    )
+                }
             },
             bottomBar = {
                 if (playbackState.currentTrack != null) {
@@ -228,17 +279,17 @@ fun HomeScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(76.dp)
                             .clip(CircleShape)
-                            .background(SangitaThemeColors.current.card)
-                            .border(1.dp, SangitaThemeColors.current.border, CircleShape),
+                            .background(colors.card)
+                            .border(1.dp, colors.border, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.CloudOff,
                             contentDescription = "Offline",
-                            tint = SangitaThemeColors.current.textMuted,
-                            modifier = Modifier.size(40.dp)
+                            tint = colors.textMuted,
+                            modifier = Modifier.size(36.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(20.dp))
@@ -246,13 +297,13 @@ fun HomeScreen(
                         text = "Device is offline",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = SangitaThemeColors.current.textPrimary
+                        color = colors.textPrimary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "You're currently offline. Listen to your downloaded playlists and songs in your library.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = SangitaThemeColors.current.textSecondary,
+                        color = colors.textSecondary,
                         textAlign = TextAlign.Center,
                         lineHeight = 20.sp
                     )
@@ -261,10 +312,10 @@ fun HomeScreen(
                         onClick = onNavigateToLibrary,
                         shape = RoundedCornerShape(22.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SangitaThemeColors.current.accent,
-                            contentColor = Color.Black
+                            containerColor = colors.accent,
+                            contentColor = Color.White
                         ),
-                        modifier = Modifier.height(48.dp)
+                        modifier = Modifier.height(46.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.LibraryMusic,
@@ -275,7 +326,7 @@ fun HomeScreen(
                         Text(
                             text = "Go to Library",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 14.sp
                         )
                     }
                 }
@@ -308,31 +359,33 @@ fun HomeScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 24.dp)
+                    contentPadding = PaddingValues(bottom = 90.dp)
                 ) {
-                    // 1. HERO SECTION & ACTION CARDS
+                    // 1. WELCOME & QUICK ACTIONS
                     item(contentType = "hero_banner") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text(
                                 text = "Welcome back,",
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                color = colors.textPrimary,
+                                fontSize = 24.sp
                             )
                             Text(
                                 text = uiState.username,
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                color = colors.textPrimary,
+                                fontSize = 24.sp
                             )
 
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            // 3 Action Cards (with chevron >)
+                            // 3 Quick Action Cards
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -340,30 +393,33 @@ fun HomeScreen(
                                 ActionNavCard(
                                     title = "Library",
                                     icon = Icons.Default.LibraryMusic,
-                                    accentColor = Color(0xFFA855F7),
                                     modifier = Modifier.weight(1f),
                                     onClick = onNavigateToLibrary
                                 )
                                 ActionNavCard(
                                     title = "Downloads",
                                     icon = Icons.Default.Download,
-                                    accentColor = MetricBlue,
                                     modifier = Modifier.weight(1f),
                                     onClick = onNavigateToDownloads
                                 )
                                 ActionNavCard(
                                     title = dataUsageToday.ifBlank { "0 B" },
                                     icon = Icons.Default.DataUsage,
-                                    accentColor = Color(0xFF06B6D4),
                                     modifier = Modifier.weight(1f),
                                     onClick = { viewModel.loadHomeData(force = true) }
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Fine divider between Quick Actions and Listening Overview
+                        HorizontalDivider(
+                            color = colors.border,
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                        )
                     }
 
-                    // 2. LISTENING OVERVIEW & 2x2 METRIC CARDS MATCHING REFERENCE DESIGN
+                    // 2. LISTENING OVERVIEW & 2x2 METRIC CARDS
                     item(contentType = "metrics_grid") {
                         Column(
                             modifier = Modifier
@@ -379,7 +435,7 @@ fun HomeScreen(
                                     Icon(
                                         imageVector = Icons.Default.GraphicEq,
                                         contentDescription = null,
-                                        tint = Color(0xFF818CF8),
+                                        tint = colors.lavender,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -387,7 +443,8 @@ fun HomeScreen(
                                         text = "Listening Overview",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
+                                        color = colors.textPrimary,
+                                        fontSize = 16.sp
                                     )
                                 }
                                 Row(
@@ -397,14 +454,15 @@ fun HomeScreen(
                                     Text(
                                         text = "View All",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = TextMuted,
-                                        fontWeight = FontWeight.Medium
+                                        color = colors.textSecondary,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 12.sp
                                     )
                                     Spacer(modifier = Modifier.width(2.dp))
                                     Icon(
                                         imageVector = Icons.Default.ChevronRight,
                                         contentDescription = null,
-                                        tint = TextMuted,
+                                        tint = colors.textMuted,
                                         modifier = Modifier.size(14.dp)
                                     )
                                 }
@@ -421,16 +479,12 @@ fun HomeScreen(
                                     label = "Listening Time",
                                     value = formatListeningTime(totalSeconds),
                                     icon = Icons.Default.Timer,
-                                    accentColor = MetricBlue,
-                                    iconBg = MetricBlueBg,
                                     modifier = Modifier.weight(1f)
                                 )
                                 MetricOverviewCard(
                                     label = "Songs Played",
                                     value = "$totalPlays",
                                     icon = Icons.Default.MusicNote,
-                                    accentColor = MetricEmerald,
-                                    iconBg = MetricEmeraldBg,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -446,24 +500,26 @@ fun HomeScreen(
                                     label = "Tracks Explored",
                                     value = "$uniqueTracks",
                                     icon = Icons.Default.GraphicEq,
-                                    accentColor = MetricAmber,
-                                    iconBg = MetricAmberBg,
                                     modifier = Modifier.weight(1f)
                                 )
                                 MetricOverviewCard(
                                     label = "#1 Top Song",
                                     value = topSong?.name ?: "No plays yet",
                                     icon = Icons.Default.Favorite,
-                                    accentColor = MetricPink,
-                                    iconBg = MetricPinkBg,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Fine divider between Listening Overview and Top 10
+                        HorizontalDivider(
+                            color = colors.border,
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
                     }
 
-                    // 3. TOP 10 MOST PLAYED SONGS (Exact Match to Screenshot)
+                    // 3. TOP 10 MOST PLAYED SONGS (Clean Minimal Library Rows)
                     if (topTracks.isNotEmpty()) {
                         item(contentType = "top_header") {
                             Column(
@@ -475,13 +531,15 @@ fun HomeScreen(
                                     text = "Top 10 Most Played",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
+                                    color = colors.textPrimary,
+                                    fontSize = 17.sp
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = "Your all-time repeats on Sangita",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = TextMuted
+                                    color = colors.textSecondary,
+                                    fontSize = 12.sp
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                             }
@@ -503,8 +561,16 @@ fun HomeScreen(
                                 onClick = { viewModel.playTrack(domainTrack, allTopTracksDomain) },
                                 onDownloadClick = { viewModel.downloadTrack(domainTrack) },
                                 onMenuClick = { /* Track context menu */ },
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 1.dp)
                             )
+                            // Subtle divider between list items
+                            if (index < topTracks.size - 1) {
+                                HorizontalDivider(
+                                    color = colors.border.copy(alpha = 0.5f),
+                                    thickness = 0.75.dp,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -570,17 +636,17 @@ fun HomeScreen(
 private fun ActionNavCard(
     title: String,
     icon: ImageVector,
-    accentColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val colors = SangitaThemeColors.current
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(SangitaThemeColors.current.card)
-            .border(1.dp, SangitaThemeColors.current.border, RoundedCornerShape(12.dp))
+            .background(colors.card)
+            .border(1.dp, colors.border, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -589,16 +655,16 @@ private fun ActionNavCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(26.dp)
+                    .size(24.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF182030)),
+                    .background(colors.elevated),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(15.dp)
+                    tint = colors.lavender,
+                    modifier = Modifier.size(14.dp)
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
@@ -606,16 +672,17 @@ private fun ActionNavCard(
                 text = title,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = SangitaThemeColors.current.textPrimary,
+                color = colors.textPrimary,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 12.sp
             )
             Spacer(modifier = Modifier.width(2.dp))
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = SangitaThemeColors.current.textMuted,
-                modifier = Modifier.size(14.dp)
+                tint = colors.textMuted,
+                modifier = Modifier.size(13.dp)
             )
         }
     }
@@ -626,15 +693,14 @@ private fun MetricOverviewCard(
     label: String,
     value: String,
     icon: ImageVector,
-    accentColor: Color,
-    iconBg: Color,
     modifier: Modifier = Modifier
 ) {
+    val colors = SangitaThemeColors.current
     Card(
-        modifier = modifier.height(96.dp),
+        modifier = modifier.height(98.dp),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SangitaThemeColors.current.card),
-        border = androidx.compose.foundation.BorderStroke(1.dp, SangitaThemeColors.current.border)
+        colors = CardDefaults.cardColors(containerColor = colors.card),
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
     ) {
         Column(
             modifier = Modifier
@@ -646,14 +712,15 @@ private fun MetricOverviewCard(
                 modifier = Modifier
                     .size(30.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF182030)),
+                    .background(colors.elevated)
+                    .border(1.dp, colors.border, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(16.dp)
+                    tint = colors.lavender,
+                    modifier = Modifier.size(15.dp)
                 )
             }
 
@@ -662,16 +729,19 @@ private fun MetricOverviewCard(
                     text = value,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = SangitaThemeColors.current.textPrimary,
+                    color = colors.textPrimary,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 17.sp
                 )
+                Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = SangitaThemeColors.current.textMuted,
+                    color = colors.textSecondary,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 12.sp
                 )
             }
         }

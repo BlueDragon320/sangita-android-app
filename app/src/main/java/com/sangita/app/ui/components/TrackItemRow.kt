@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,13 +48,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Track
-import com.sangita.app.ui.theme.SangitaBlack
-import com.sangita.app.ui.theme.SangitaCard
-import com.sangita.app.ui.theme.SangitaCardHover
-import com.sangita.app.ui.theme.SangitaEmerald
-import com.sangita.app.ui.theme.SangitaText
-import com.sangita.app.ui.theme.SangitaTextDim
-import com.sangita.app.ui.theme.SangitaTextSub
+import com.sangita.app.ui.theme.SangitaThemeColors
 import kotlinx.coroutines.delay
 
 @Composable
@@ -72,6 +67,7 @@ fun TrackItemRow(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val colors = SangitaThemeColors.current
 
     // 3-second hold to reveal download, followed by 3-second countdown
     var isDownloadRevealed by remember { mutableStateOf(false) }
@@ -101,8 +97,8 @@ fun TrackItemRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isPlayingThisTrack) SangitaCardHover else Color.Transparent)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isPlayingThisTrack) colors.elevated.copy(alpha = 0.5f) else Color.Transparent)
             .pointerInput(track.id) {
                 detectTapGestures(
                     onTap = { onClick() },
@@ -112,24 +108,24 @@ fun TrackItemRow(
                     }
                 )
             }
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+            .padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Left Slot: CAVA Visualizer (PlayingBars) when playing, or Rank Number
         Box(
-            modifier = Modifier.width(26.dp),
+            modifier = Modifier.width(24.dp),
             contentAlignment = Alignment.Center
         ) {
             if (isPlayingThisTrack) {
-                // Requirement 6: "cava thing" on the number of currently playing song
-                PlayingBars(modifier = Modifier.size(width = 18.dp, height = 14.dp))
+                PlayingBars(modifier = Modifier.size(width = 16.dp, height = 14.dp))
             } else if (index != null) {
                 Text(
                     text = "$index",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = SangitaTextDim,
+                    color = colors.textMuted,
                     fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    fontSize = 13.sp
                 )
             }
         }
@@ -141,7 +137,7 @@ fun TrackItemRow(
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(SangitaCard),
+                .background(colors.elevated),
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
@@ -161,15 +157,17 @@ fun TrackItemRow(
             Text(
                 text = track.title,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isPlayingThisTrack) SangitaEmerald else SangitaText,
+                color = if (isPlayingThisTrack) colors.accent else colors.textPrimary,
                 fontWeight = if (isPlayingThisTrack) FontWeight.Bold else FontWeight.SemiBold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 14.sp
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = track.artist.ifBlank { track.playlist },
                 style = MaterialTheme.typography.bodySmall,
-                color = SangitaTextDim,
+                color = colors.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 12.sp
@@ -178,13 +176,12 @@ fun TrackItemRow(
 
         Spacer(modifier = Modifier.width(10.dp))
 
-        // Right side: Clean visible Timestamp OR Download Countdown Pill (Direct if-check for 120 FPS scrolling)
+        // Right side: Clean visible Timestamp OR Download Countdown Pill
         if (isDownloadRevealed) {
-            // 3-second countdown download button
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
-                    .background(SangitaEmerald)
+                    .background(colors.accent)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = {
@@ -200,7 +197,7 @@ fun TrackItemRow(
                     Icon(
                         imageVector = Icons.Default.Download,
                         contentDescription = "Download",
-                        tint = SangitaBlack,
+                        tint = Color.White,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -208,7 +205,7 @@ fun TrackItemRow(
                         text = "${countdownSeconds}s",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = SangitaBlack
+                        color = Color.White
                     )
                 }
             }
@@ -220,7 +217,7 @@ fun TrackItemRow(
                             .padding(end = 6.dp)
                             .size(5.dp)
                             .clip(CircleShape)
-                            .background(SangitaEmerald)
+                            .background(colors.accent)
                     )
                 } else if (track.downloadStatus == DownloadStatus.DOWNLOADING) {
                     CircularProgressIndicator(
@@ -228,7 +225,7 @@ fun TrackItemRow(
                             .padding(end = 6.dp)
                             .size(10.dp),
                         strokeWidth = 1.5.dp,
-                        color = SangitaEmerald
+                        color = colors.accent
                     )
                 }
 
@@ -238,7 +235,7 @@ fun TrackItemRow(
                 Text(
                     text = durationFormatted,
                     style = MaterialTheme.typography.bodySmall,
-                    color = SangitaTextSub,
+                    color = colors.textMuted,
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp
                 )

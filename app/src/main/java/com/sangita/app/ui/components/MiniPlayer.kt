@@ -81,18 +81,18 @@ fun MiniPlayer(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(colors.surface)
-            .border(1.dp, colors.border, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
+            .background(colors.elevated)
+            .border(1.dp, colors.border, RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
             .clickable(onClick = onClick)
     ) {
-        // Linear track progress indicator
+        // Subtle restrained blue progress indicator
         LinearProgressIndicator(
             progress = { progress },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(2.dp),
-            color = Emerald500,
+            color = colors.accent,
             trackColor = colors.border
         )
 
@@ -105,7 +105,7 @@ fun MiniPlayer(
             // Album art thumbnail
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(44.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(colors.card)
             ) {
@@ -129,14 +129,16 @@ fun MiniPlayer(
                     fontWeight = FontWeight.SemiBold,
                     color = colors.textPrimary,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 14.sp
                 )
                 Text(
                     text = track.artist.ifBlank { track.playlist },
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.textSecondary,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 12.sp
                 )
             }
 
@@ -149,7 +151,7 @@ fun MiniPlayer(
                     Icon(
                         imageVector = Icons.Default.Devices,
                         contentDescription = "Connected Devices",
-                        tint = if (!playbackState.isActiveDevice) Emerald500 else colors.textPrimary,
+                        tint = if (!playbackState.isActiveDevice) colors.accent else colors.textSecondary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -163,7 +165,7 @@ fun MiniPlayer(
                 Icon(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = "Previous",
-                    tint = colors.textPrimary,
+                    tint = colors.textSecondary,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -175,16 +177,16 @@ fun MiniPlayer(
             ) {
                 if (playbackState.isBuffering) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Emerald500,
-                        strokeWidth = 2.5.dp
+                        modifier = Modifier.size(22.dp),
+                        color = colors.accent,
+                        strokeWidth = 2.dp
                     )
                 } else {
                     Icon(
                         imageVector = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
                         tint = colors.textPrimary,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }
@@ -197,7 +199,7 @@ fun MiniPlayer(
                 Icon(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = "Next",
-                    tint = colors.textPrimary,
+                    tint = colors.textSecondary,
                     modifier = Modifier.size(22.dp)
                 )
             }

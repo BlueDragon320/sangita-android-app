@@ -4,23 +4,39 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 
-// Raw Static Values - AMOLED True Black Aesthetic
+// ==========================================
+// Ambient Static Tokens - Premium Ambient Dark Aesthetic
+// ==========================================
+val AmbientBackground = Color(0xFF080A0F)      // Primary near-black charcoal foundation
+val AmbientBackgroundSec = Color(0xFF10131B)   // Secondary background
+val AmbientCard = Color(0xFF121620)            // Card surface
+val AmbientElevated = Color(0xFF181D2A)        // Elevated surface
+val AmbientBorder = Color(0xFF262C3B)          // Subtle borders and dividers
+val AmbientBorderHi = Color(0xFF3A4256)        // Elevated borders
+val AmbientTextPrimary = Color(0xFFF1F2F7)     // Primary text
+val AmbientTextSecondary = Color(0xFF9299AE)   // Secondary text
+val AmbientTextMuted = Color(0xFF656D83)       // Muted text
+val AmbientAccentBlue = Color(0xFF4169E1)      // Accent royal blue
+val AmbientAuraBlue = Color(0xFF243F87)        // Soft ambient blue glow
+val AmbientLavender = Color(0xFF9A9FE8)        // Muted lavender
+
+// Backward-compatible Raw Static Values
 val RawSangitaBlack = Color(0xFF000000)
-val RawSangitaSurface = Color(0xFF0C0C0E)
-val RawSangitaSurfaceHi = Color(0xFF141418)
-val RawSangitaCard = Color(0xFF141418)
-val RawSangitaCardHover = Color(0xFF1F1F24)
-val RawSangitaText = Color(0xFFFFFFFF)
-val RawSangitaTextSub = Color(0xFF94A3B8)
-val RawSangitaTextDim = Color(0xFF64748B)
-val RawSangitaBorder = Color(0x1FFFFFFF)
-val RawSangitaBorderHi = Color(0x33FFFFFF)
+val RawSangitaSurface = AmbientCard
+val RawSangitaSurfaceHi = AmbientElevated
+val RawSangitaCard = AmbientCard
+val RawSangitaCardHover = AmbientElevated
+val RawSangitaText = AmbientTextPrimary
+val RawSangitaTextSub = AmbientTextSecondary
+val RawSangitaTextDim = AmbientTextMuted
+val RawSangitaBorder = AmbientBorder
+val RawSangitaBorderHi = AmbientBorderHi
 
 // Static highlights & constants
-val SangitaEmerald = Color(0xFF34D399)       // Vibrant emerald accent matching website
-val SangitaEmeraldHi = Color(0xFF6EE7B7)
-val SangitaEmeraldDim = Color(0xFF059669)
-val SangitaZinc300 = Color(0xFFD4D4D8)
+val SangitaEmerald = AmbientLavender
+val SangitaEmeraldHi = Color(0xFFB4B8F0)
+val SangitaEmeraldDim = AmbientAuraBlue
+val SangitaZinc300 = AmbientTextSecondary
 
 val SangitaRed = Color(0xFFEF4444)
 val SangitaRedLight = Color(0xFFF87171)
@@ -29,14 +45,15 @@ val SangitaRedBorder = Color(0x4DEF4444)
 val FavoritePink = Color(0xFFEC4899)
 val ErrorRed = SangitaRed
 
-val MetricBlue = Color(0xFF38BDF8)
-val MetricBlueBg = Color(0xFF18181B)
-val MetricEmerald = Color(0xFF34D399)
-val MetricEmeraldBg = Color(0xFF18181B)
-val MetricAmber = Color(0xFFFBBF24)
-val MetricAmberBg = Color(0xFF18181B)
-val MetricPink = Color(0xFFF472B6)
-val MetricPinkBg = Color(0xFF18181B)
+// Restrained Metric Tokens (defaulting to restrained lavender or soft white/muted colors)
+val MetricBlue = AmbientAccentBlue
+val MetricBlueBg = AmbientElevated
+val MetricEmerald = AmbientLavender
+val MetricEmeraldBg = AmbientElevated
+val MetricAmber = AmbientTextPrimary
+val MetricAmberBg = AmbientElevated
+val MetricPink = AmbientLavender
+val MetricPinkBg = AmbientElevated
 val Emerald500 = SangitaEmerald
 val EmeraldDim = SangitaEmeraldDim
 
@@ -46,10 +63,20 @@ val DarkBackground: Color
     @ReadOnlyComposable
     get() = LocalSangitaColors.current.background
 
+val DarkBackgroundSec: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalSangitaColors.current.backgroundSec
+
 val DarkSurface: Color
     @Composable
     @ReadOnlyComposable
     get() = LocalSangitaColors.current.surface
+
+val DarkElevated: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalSangitaColors.current.elevated
 
 val DarkSurfaceVariant: Color
     @Composable
@@ -125,3 +152,23 @@ val SangitaSurface: Color
     @Composable
     @ReadOnlyComposable
     get() = LocalSangitaColors.current.surface
+
+val SangitaAccent: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalSangitaColors.current.accent
+
+val AmbientAccent: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalSangitaColors.current.accent
+
+val AmbientAura: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalSangitaColors.current.auraBlue
+
+val AmbientMutedLavender: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalSangitaColors.current.lavender
