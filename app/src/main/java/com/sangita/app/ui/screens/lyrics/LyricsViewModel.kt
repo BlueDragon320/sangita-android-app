@@ -65,7 +65,7 @@ class LyricsViewModel(
 
     fun skipPrevious() = playbackController.skipPrevious()
 
-    val currentTheme: StateFlow<String> = userPreferences?.lyricsThemeFlow ?: MutableStateFlow("combo1")
+    val currentTheme: StateFlow<String> = userPreferences?.lyricsThemeFlow ?: MutableStateFlow("black")
 
     fun cycleTheme() {
         val curr = currentTheme.value

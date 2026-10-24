@@ -72,7 +72,7 @@ class UserPreferences(context: Context) {
     }
 
     fun getLyricsTheme(): String {
-        return prefs.getString(KEY_LYRICS_THEME, "combo1") ?: "combo1"
+        return prefs.getString(KEY_LYRICS_THEME, "black") ?: "black"
     }
 
     fun setLyricsTheme(theme: String) {

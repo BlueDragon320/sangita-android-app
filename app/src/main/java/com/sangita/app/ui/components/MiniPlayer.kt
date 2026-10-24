@@ -93,7 +93,7 @@ fun MiniPlayer(
                 .fillMaxWidth()
                 .height(2.dp),
             color = colors.accent,
-            trackColor = colors.border
+            trackColor = colors.buttonBg
         )
 
         Row(

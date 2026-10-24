@@ -142,7 +142,7 @@ enum class LyricsThemePalette(
         val COLORFUL_THEMES = listOf(COMBO1, COMBO2, COMBO3, COMBO4, RED, GREEN, BLUE)
 
         fun fromId(id: String): LyricsThemePalette {
-            return entries.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: COMBO1
+            return entries.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: BLACK
         }
 
         fun getNextTheme(currentId: String): LyricsThemePalette {
@@ -168,7 +168,7 @@ enum class LyricsThemePalette(
 @Composable
 fun DynamicAmbientCanvas(
     modifier: Modifier = Modifier,
-    theme: String = "combo1"
+    theme: String = "black"
 ) {
     val palette = androidx.compose.runtime.remember(theme) { LyricsThemePalette.fromId(theme) }
 

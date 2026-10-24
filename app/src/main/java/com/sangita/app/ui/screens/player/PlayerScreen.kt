@@ -79,6 +79,7 @@ import com.sangita.app.ui.components.findActivity
 import com.sangita.app.ui.components.formatSeconds
 import com.sangita.app.ui.theme.DarkBackground
 import com.sangita.app.ui.theme.DarkBorder
+import com.sangita.app.ui.theme.DeepOceanBlue
 import com.sangita.app.ui.theme.Emerald500
 import com.sangita.app.ui.theme.FavoritePink
 import com.sangita.app.ui.theme.TextMuted
@@ -281,7 +282,7 @@ fun PlayerScreen(
                         colors = SliderDefaults.colors(
                             thumbColor = Emerald500,
                             activeTrackColor = Emerald500,
-                            inactiveTrackColor = DarkBorder
+                            inactiveTrackColor = DeepOceanBlue
                         ),
                         modifier = Modifier.fillMaxWidth().height(24.dp)
                     )
@@ -509,7 +510,7 @@ fun PlayerScreen(
                 colors = SliderDefaults.colors(
                     thumbColor = Emerald500,
                     activeTrackColor = Emerald500,
-                    inactiveTrackColor = DarkBorder
+                    inactiveTrackColor = DeepOceanBlue
                 ),
                 modifier = Modifier.fillMaxWidth()
             )

@@ -28,7 +28,8 @@ data class SangitaColors(
     val borderHi: Color,
     val accent: Color,
     val auraBlue: Color,
-    val lavender: Color
+    val lavender: Color,
+    val buttonBg: Color = DeepOceanBlue
 )
 
 val LocalSangitaColors = staticCompositionLocalOf {
@@ -46,7 +47,8 @@ val LocalSangitaColors = staticCompositionLocalOf {
         borderHi = AmbientBorderHi,
         accent = AmbientAccentBlue,
         auraBlue = AmbientAuraBlue,
-        lavender = AmbientLavender
+        lavender = AmbientLavender,
+        buttonBg = DeepOceanBlue
     )
 }
 
@@ -138,7 +140,8 @@ fun SangitaTheme(
             borderHi = Color(0xFFCBD5E1),
             accent = AmbientAccentBlue,
             auraBlue = AmbientAuraBlue,
-            lavender = AmbientLavender
+            lavender = AmbientLavender,
+            buttonBg = DeepOceanBlue
         )
         UserPreferences.THEME_AMOLED -> SangitaColors(
             background = Color(0xFF000000),
@@ -154,7 +157,8 @@ fun SangitaTheme(
             borderHi = AmbientBorderHi,
             accent = AmbientAccentBlue,
             auraBlue = AmbientAuraBlue,
-            lavender = AmbientLavender
+            lavender = AmbientLavender,
+            buttonBg = DeepOceanBlue
         )
         UserPreferences.THEME_DARK -> SangitaColors(
             background = AmbientBackground,
@@ -170,7 +174,8 @@ fun SangitaTheme(
             borderHi = AmbientBorderHi,
             accent = AmbientAccentBlue,
             auraBlue = AmbientAuraBlue,
-            lavender = AmbientLavender
+            lavender = AmbientLavender,
+            buttonBg = DeepOceanBlue
         )
         else -> SangitaColors(
             background = AmbientBackground,
@@ -186,7 +191,8 @@ fun SangitaTheme(
             borderHi = AmbientBorderHi,
             accent = AmbientAccentBlue,
             auraBlue = AmbientAuraBlue,
-            lavender = AmbientLavender
+            lavender = AmbientLavender,
+            buttonBg = DeepOceanBlue
         )
     }
 

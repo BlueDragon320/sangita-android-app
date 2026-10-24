@@ -1,9 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="440"
+    android:viewportHeight="440">
+
+    <!-- Rounded Play Triangle Outline -->
     <path
+        android:name="play_triangle"
+        android:pathData="M 44.5,127 C 44.5,103 64.5,93 84.5,105 L 167.5,190 C 183.5,201 183.5,219 167.5,230 L 84.5,315 C 64.5,327 44.5,317 44.5,293 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="16"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- 12-Column Morse Code Soundwave -->
+    <!-- Col 1 -->
+    <path
+        android:name="col_1"
         android:fillColor="#FFFFFFFF"
-        android:pathData="M12,3v10.55c-0.59,-0.34 -1.27,-0.55 -2,-0.55 -2.21,0 -4,1.79 -4,4s1.79,4 4,4 4,-1.79 4,-4V7h4V3h-6z"/>
+        android:pathData="M 217.5,200.0 a 5,5 0 0,1 10,0 v 20.0 a 5,5 0 0,1 -10,0 Z" />
+    <!-- Col 2 -->
+    <path
+        android:name="col_2"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 233.5,177.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 233.5,198.0 a 5,5 0 0,1 10,0 v 24.0 a 5,5 0 0,1 -10,0 Z M 233.5,243.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z" />
+    <!-- Col 3 -->
+    <path
+        android:name="col_3"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 249.5,155.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 249.5,171.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 249.5,190.0 a 5,5 0 0,1 10,0 v 60.0 a 5,5 0 0,1 -10,0 Z M 249.5,269.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z" />
+    <!-- Col 4 -->
+    <path
+        android:name="col_4"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 265.5,97.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 265.5,120.0 a 5,5 0 0,1 10,0 v 32.0 a 5,5 0 0,1 -10,0 Z M 265.5,171.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 265.5,187.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 265.5,206.0 a 5,5 0 0,1 10,0 v 34.0 a 5,5 0 0,1 -10,0 Z M 265.5,259.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 265.5,278.0 a 5,5 0 0,1 10,0 v 26.0 a 5,5 0 0,1 -10,0 Z M 265.5,323.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z" />
+    <!-- Col 5 -->
+    <path
+        android:name="col_5"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 281.5,148.0 a 5,5 0 0,1 10,0 v 38.0 a 5,5 0 0,1 -10,0 Z M 281.5,205.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 281.5,224.0 a 5,5 0 0,1 10,0 v 44.0 a 5,5 0 0,1 -10,0 Z" />
+    <!-- Col 6 -->
+    <path
+        android:name="col_6"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 297.5,177.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 297.5,198.0 a 5,5 0 0,1 10,0 v 26.0 a 5,5 0 0,1 -10,0 Z M 297.5,243.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 297.5,259.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z" />
+    <!-- Col 7 -->
+    <path
+        android:name="col_7"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 313.5,198.0 a 5,5 0 0,1 10,0 v 24.0 a 5,5 0 0,1 -10,0 Z" />
+    <!-- Col 8 -->
+    <path
+        android:name="col_8"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 329.5,190.0 a 5,5 0 0,1 10,0 v 32.0 a 5,5 0 0,1 -10,0 Z M 329.5,241.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z" />
+    <!-- Col 9 -->
+    <path
+        android:name="col_9"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 345.5,123.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 345.5,139.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 345.5,160.0 a 5,5 0 0,1 10,0 v 76.0 a 5,5 0 0,1 -10,0 Z M 345.5,255.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 345.5,274.0 a 5,5 0 0,1 10,0 v 14.0 a 5,5 0 0,1 -10,0 Z M 345.5,307.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 345.5,321.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z" />
+    <!-- Col 10 -->
+    <path
+        android:name="col_10"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 361.5,172.0 a 5,5 0 0,1 10,0 v 42.0 a 5,5 0 0,1 -10,0 Z M 361.5,234.0 a 5,5 0 0,1 10,0 v 30.0 a 5,5 0 0,1 -10,0 Z" />
+    <!-- Col 11 -->
+    <path
+        android:name="col_11"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 377.5,193.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z M 377.5,212.0 a 5,5 0 0,1 10,0 v 22.0 a 5,5 0 0,1 -10,0 Z M 377.5,253.0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0 Z" />
+    <!-- Col 12 -->
+    <path
+        android:name="col_12"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 393.5,204.0 a 5,5 0 0,1 10,0 v 12.0 a 5,5 0 0,1 -10,0 Z" />
 </vector>

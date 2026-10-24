@@ -294,8 +294,8 @@ fun HomeScreen(
                         onClick = onNavigateToLibrary,
                         shape = RoundedCornerShape(22.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = colors.accent,
-                            contentColor = Color.White
+                            containerColor = colors.buttonBg,
+                            contentColor = colors.accent
                         ),
                         modifier = Modifier.height(46.dp)
                     ) {

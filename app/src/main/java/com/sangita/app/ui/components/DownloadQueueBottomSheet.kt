@@ -122,13 +122,13 @@ fun DownloadQueueIconButton(
                     .align(Alignment.TopEnd)
                     .size(15.dp)
                     .clip(CircleShape)
-                    .background(colors.accent)
+                    .background(colors.buttonBg)
                     .border(1.2.dp, colors.elevated, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = if (activeCount > 9) "9+" else "$activeCount",
-                    color = colors.textPrimary,
+                    color = colors.accent,
                     fontSize = 8.5.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
