@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.sangita.app.data.local.storage.LocalStorageManager
 import com.sangita.app.domain.model.PlaybackState
 import com.sangita.app.ui.theme.DarkBorder
 import com.sangita.app.ui.theme.DarkSurface
@@ -66,11 +67,14 @@ fun MiniPlayer(
     val context = LocalContext.current
     val colors = SangitaThemeColors.current
 
-    val coverUrl = "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val localCover = remember(track.id) {
+        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
+    }
+    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
 
-    val imageRequest = remember(coverUrl) {
+    val imageRequest = remember(coverModel) {
         ImageRequest.Builder(context)
-            .data(coverUrl)
+            .data(coverModel)
             .size(128, 128)
             .crossfade(100)
             .build()

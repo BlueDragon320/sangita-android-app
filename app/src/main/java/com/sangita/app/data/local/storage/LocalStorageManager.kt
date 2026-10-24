@@ -1,7 +1,9 @@
 package com.sangita.app.data.local.storage
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.os.Environment
+import com.sangita.app.SangitaApplication
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -42,6 +44,43 @@ class LocalStorageManager(private val context: Context) {
     fun getLyricsFile(trackId: String): File {
         val sanitized = sanitizeFilename(trackId).substringBeforeLast('.') + ".lrc"
         return File(lyricsDir, sanitized)
+    }
+
+    fun getOrExtractCoverFile(trackId: String, customAudioPath: String? = null): File? {
+        val coverFile = getCoverFile(trackId)
+        if (coverFile.exists() && coverFile.length() > 0) return coverFile
+
+        val candidateAudio = when {
+            !customAudioPath.isNullOrBlank() && File(customAudioPath).exists() -> File(customAudioPath)
+            getAudioFile(trackId).exists() -> getAudioFile(trackId)
+            else -> {
+                val sanitized = sanitizeFilename(trackId).substringBeforeLast('.')
+                audioDir.listFiles()?.firstOrNull { it.name.startsWith(sanitized) && it.length() > 0 }
+            }
+        }
+
+        if (candidateAudio != null && candidateAudio.exists() && candidateAudio.length() > 0) {
+            try {
+                val mmr = MediaMetadataRetriever()
+                mmr.setDataSource(candidateAudio.absolutePath)
+                val art = mmr.embeddedPicture
+                mmr.release()
+                if (art != null && art.isNotEmpty()) {
+                    coverFile.parentFile?.mkdirs()
+                    coverFile.writeBytes(art)
+                    return coverFile
+                }
+            } catch (_: Exception) {}
+        }
+        return null
+    }
+
+    companion object {
+        fun getOrExtractCoverFile(context: Context, trackId: String, customAudioPath: String? = null): File? {
+            val manager = (context.applicationContext as? SangitaApplication)?.container?.localStorageManager
+                ?: LocalStorageManager(context)
+            return manager.getOrExtractCoverFile(trackId, customAudioPath)
+        }
     }
 
     suspend fun saveAudioStream(trackId: String, inputStream: InputStream): File = withContext(Dispatchers.IO) {

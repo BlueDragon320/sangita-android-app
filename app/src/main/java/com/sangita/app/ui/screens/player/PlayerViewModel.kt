@@ -64,10 +64,12 @@ class PlayerViewModel(
         } else {
             val currentPos = playbackState.value.currentPositionMs
             val currentDur = playbackState.value.durationMs
+            val currentTrackId = playbackState.value.currentTrack?.id
             deviceSyncManager?.transferPlayback(
                 targetDeviceId = targetDeviceId,
                 positionMs = currentPos,
-                durationMs = if (currentDur > 0) currentDur else null
+                durationMs = if (currentDur > 0) currentDur else null,
+                trackId = currentTrackId
             )
         }
     }

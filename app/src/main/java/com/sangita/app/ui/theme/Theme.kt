@@ -86,11 +86,11 @@ private val AmoledColorScheme = darkColorScheme(
     onSecondary = Color(0xFF000000),
     background = Color(0xFF000000),
     onBackground = AmbientTextPrimary,
-    surface = Color(0xFF080A0F),
+    surface = Color(0xFF000000),
     onSurface = AmbientTextPrimary,
-    surfaceVariant = AmbientCard,
+    surfaceVariant = Color(0xFF000000),
     onSurfaceVariant = AmbientTextSecondary,
-    outline = AmbientBorder,
+    outline = Color(0xFF1E2330),
     error = SangitaRed
 )
 
@@ -148,16 +148,16 @@ fun SangitaTheme(
         )
         UserPreferences.THEME_AMOLED -> SangitaColors(
             background = Color(0xFF000000),
-            backgroundSec = Color(0xFF080A0F),
-            surface = Color(0xFF080A0F),
-            elevated = AmbientElevated,
-            card = AmbientCard,
-            cardHover = AmbientElevated,
+            backgroundSec = Color(0xFF000000),
+            surface = Color(0xFF000000),
+            elevated = Color(0xFF000000),
+            card = Color(0xFF000000),
+            cardHover = Color(0xFF080A0F),
             textPrimary = AmbientTextPrimary,
             textSecondary = AmbientTextSecondary,
             textMuted = AmbientTextMuted,
-            border = AmbientBorder,
-            borderHi = AmbientBorderHi,
+            border = Color(0xFF1E2330),
+            borderHi = Color(0xFF2C3446),
             accent = AmbientAccentBlue,
             auraBlue = AmbientAuraBlue,
             lavender = AmbientLavender,

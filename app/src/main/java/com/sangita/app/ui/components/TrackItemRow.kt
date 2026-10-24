@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.sangita.app.data.local.storage.LocalStorageManager
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.theme.SangitaThemeColors
@@ -87,10 +88,13 @@ fun TrackItemRow(
         }
     }
 
-    val coverUrl = "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
-    val imageRequest = remember(coverUrl) {
+    val localCover = remember(track.id) {
+        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
+    }
+    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val imageRequest = remember(coverModel) {
         ImageRequest.Builder(context)
-            .data(coverUrl)
+            .data(coverModel)
             .size(128, 128)
             .crossfade(100)
             .build()

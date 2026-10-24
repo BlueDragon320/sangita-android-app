@@ -41,10 +41,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.sangita.app.data.local.storage.LocalStorageManager
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.formatSeconds
@@ -201,7 +204,18 @@ fun DownloadedTrackRow(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val coverUrl = "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val context = LocalContext.current
+    val localCover = remember(track.id) {
+        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
+    }
+    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val imageRequest = remember(coverModel) {
+        ImageRequest.Builder(context)
+            .data(coverModel)
+            .size(128, 128)
+            .crossfade(100)
+            .build()
+    }
     val colors = SangitaThemeColors.current
 
     Row(
@@ -220,7 +234,7 @@ fun DownloadedTrackRow(
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
-                model = coverUrl,
+                model = imageRequest,
                 contentDescription = track.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize()

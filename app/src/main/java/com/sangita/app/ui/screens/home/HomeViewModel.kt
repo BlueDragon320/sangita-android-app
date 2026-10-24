@@ -157,7 +157,8 @@ class HomeViewModel(
             deviceSyncManager?.transferPlayback(
                 targetDeviceId = targetDeviceId,
                 positionMs = state.currentPositionMs,
-                durationMs = if (state.durationMs > 0) state.durationMs else null
+                durationMs = if (state.durationMs > 0) state.durationMs else null,
+                trackId = state.currentTrack?.id
             )
         }
         closeDevicesSheet()

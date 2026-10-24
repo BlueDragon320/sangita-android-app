@@ -459,16 +459,30 @@ class DeviceSyncManager(
         }
     }
 
-    fun transferPlayback(targetDeviceId: String, positionMs: Long? = null, durationMs: Long? = null) {
+    fun transferPlayback(
+        targetDeviceId: String,
+        positionMs: Long? = null,
+        durationMs: Long? = null,
+        trackId: String? = null
+    ) {
         try {
+            val currentTrack = trackId ?: _remotePlaybackState.value?.trackId
             val payload = JSONObject().apply {
                 put("targetDeviceId", targetDeviceId)
                 put("originDeviceId", myDeviceId)
                 put("playImmediately", true)
+                if (!currentTrack.isNullOrBlank()) {
+                    put("trackId", currentTrack)
+                }
                 if (positionMs != null && positionMs >= 0) put("positionMs", positionMs)
                 if (durationMs != null && durationMs > 0) put("durationMs", durationMs)
             }
             socket?.emit("TRANSFER_PLAYBACK", payload)
+
+            // Immediately send remote control "play" to target device so it starts playback without pausing and waiting for manual play
+            if (targetDeviceId != myDeviceId) {
+                sendRemoteControl("play", targetDeviceId = targetDeviceId)
+            }
 
             val isBecomingActive = (targetDeviceId == myDeviceId)
             _activeDeviceId.value = targetDeviceId
@@ -480,13 +494,17 @@ class DeviceSyncManager(
             val current = _remotePlaybackState.value
             val newState = current?.copy(
                 activeDeviceId = targetDeviceId,
+                trackId = currentTrack ?: current.trackId,
                 positionMs = positionMs ?: current.positionMs,
                 durationMs = durationMs ?: current.durationMs,
+                isPlaying = true,
                 updatedAt = System.currentTimeMillis()
             ) ?: RemotePlaybackState(
                 activeDeviceId = targetDeviceId,
+                trackId = currentTrack,
                 positionMs = positionMs ?: 0L,
                 durationMs = durationMs ?: 0L,
+                isPlaying = true,
                 updatedAt = System.currentTimeMillis()
             )
             _remotePlaybackState.value = newState
@@ -504,8 +522,8 @@ class DeviceSyncManager(
         }
     }
 
-    fun claimActiveDevice(positionMs: Long? = null, durationMs: Long? = null) {
-        transferPlayback(myDeviceId, positionMs, durationMs)
+    fun claimActiveDevice(positionMs: Long? = null, durationMs: Long? = null, trackId: String? = null) {
+        transferPlayback(myDeviceId, positionMs, durationMs, trackId)
     }
 
     fun sendRemoteControl(action: String, payload: JSONObject? = null, targetDeviceId: String? = null) {

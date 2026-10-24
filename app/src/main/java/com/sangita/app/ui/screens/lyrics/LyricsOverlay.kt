@@ -1,5 +1,7 @@
 package com.sangita.app.ui.screens.lyrics
 
+import com.sangita.app.data.local.storage.LocalStorageManager
+
 import android.app.Activity
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
@@ -134,7 +136,14 @@ fun LyricsOverlay(
     val token = viewModel.token ?: remember(context) { UserPreferences(context).getToken() }
 
     val track = playbackState.currentTrack
-    val coverUrl = if (track != null && serverUrl.isNotEmpty()) {
+    val localCover = remember(track?.id) {
+        if (track != null) {
+            LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
+        } else null
+    }
+    val coverModel: Any? = if (localCover != null && localCover.exists()) {
+        localCover
+    } else if (track != null && serverUrl.isNotEmpty()) {
         "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
     } else null
 
@@ -209,9 +218,9 @@ fun LyricsOverlay(
                             .background(DarkBorder),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (!coverUrl.isNullOrEmpty()) {
+                        if (coverModel != null) {
                             AsyncImage(
-                                model = coverUrl,
+                                model = coverModel,
                                 contentDescription = track?.title,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()

@@ -159,9 +159,13 @@ class PlaybackController(
                 if (state.isTransferHandoff && !state.trackId.isNullOrBlank()) {
                     Log.d("PlaybackController", "Transfer handoff targeting phone: ${state.trackId} at ${state.positionMs}ms")
                     val resolvedTrack = resolveTrack(state.trackId, state.durationMs)
-                    playTrack(resolvedTrack, listOf(resolvedTrack), forceLocal = true)
-                    if (state.positionMs > 0) {
-                        seekTo(state.positionMs)
+                    playTrack(resolvedTrack, listOf(resolvedTrack), forceLocal = true, startPositionMs = state.positionMs)
+                    mediaController?.let { p ->
+                        p.playWhenReady = true
+                        p.play()
+                        if (state.positionMs > 0) {
+                            p.seekTo(state.positionMs)
+                        }
                     }
                 } else if (mediaController?.isPlaying == true) {
                     startProgressPolling()
@@ -214,12 +218,13 @@ class PlaybackController(
                 "play" -> {
                     val player = mediaController
                     if (player != null) {
+                        player.playWhenReady = true
                         if (player.currentMediaItem == null && _playbackState.value.currentTrack != null) {
                             val track = _playbackState.value.currentTrack!!
-                            playTrack(track, _currentQueue.value.ifEmpty { listOf(track) })
+                            playTrack(track, _currentQueue.value.ifEmpty { listOf(track) }, forceLocal = true)
                         } else {
                             player.play()
-                            broadcastPlaybackState()
+                            broadcastPlaybackState(overridePlaying = true)
                         }
                     }
                 }
@@ -243,8 +248,17 @@ class PlaybackController(
                     }
                 }
                 "loop" -> {
-                    val loop = payload?.optBoolean("loop", false) ?: false
-                    setRepeatMode(if (loop) RepeatMode.ALL else RepeatMode.OFF)
+                    val modeStr = payload?.optString("repeatMode", "") ?: ""
+                    val mode = when (modeStr.uppercase()) {
+                        "ONE" -> RepeatMode.ONE
+                        "ALL" -> RepeatMode.ALL
+                        "OFF" -> RepeatMode.OFF
+                        else -> {
+                            val loop = payload?.optBoolean("loop", false) ?: false
+                            if (loop) RepeatMode.ALL else RepeatMode.OFF
+                        }
+                    }
+                    setRepeatMode(mode)
                 }
                 "shuffle" -> {
                     val shuffle = payload?.optBoolean("shuffle", false) ?: false
@@ -309,7 +323,14 @@ class PlaybackController(
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         controllerFuture?.addListener({
             try {
-                mediaController = controllerFuture?.get()
+                val controller = controllerFuture?.get()
+                mediaController = controller
+                val exoRepeatMode = when (_playbackState.value.repeatMode) {
+                    RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+                    RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+                    RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+                }
+                controller?.repeatMode = exoRepeatMode
                 setupPlayerListener()
             } catch (_: Exception) {}
         }, { runnable -> runnable.run() })
@@ -349,7 +370,34 @@ class PlaybackController(
                     }
                     if (playbackState == Player.STATE_ENDED) {
                         recordPlayEvent(isComplete = true)
-                        skipNext()
+                        when (_playbackState.value.repeatMode) {
+                            RepeatMode.ONE -> {
+                                player.seekTo(0L)
+                                player.playWhenReady = true
+                                player.play()
+                            }
+                            RepeatMode.ALL -> {
+                                val queue = _currentQueue.value
+                                val current = _playbackState.value.currentTrack
+                                val currentIndex = queue.indexOfFirst { it.id == current?.id }
+                                if (currentIndex != -1 && currentIndex < queue.size - 1) {
+                                    playTrack(queue[currentIndex + 1], queue)
+                                } else if (queue.isNotEmpty()) {
+                                    playTrack(queue.first(), queue)
+                                }
+                            }
+                            RepeatMode.OFF -> {
+                                val queue = _currentQueue.value
+                                val current = _playbackState.value.currentTrack
+                                val currentIndex = queue.indexOfFirst { it.id == current?.id }
+                                if (currentIndex != -1 && currentIndex < queue.size - 1) {
+                                    playTrack(queue[currentIndex + 1], queue)
+                                } else {
+                                    _playbackState.update { it.copy(isPlaying = false) }
+                                    broadcastPlaybackState(overridePlaying = false)
+                                }
+                            }
+                        }
                     }
                     updateProgressFromPlayer()
                     broadcastPlaybackState(overridePlaying = isActuallyPlaying, overrideBuffering = isBuffering)
@@ -376,7 +424,12 @@ class PlaybackController(
         })
     }
 
-    fun playTrack(track: Track, queue: List<Track> = listOf(track), forceLocal: Boolean = false) {
+    fun playTrack(
+        track: Track,
+        queue: List<Track> = listOf(track),
+        forceLocal: Boolean = false,
+        startPositionMs: Long = 0L
+    ) {
         _currentQueue.value = queue
         val trackDurationMs = ((track.durationSeconds ?: 0.0) * 1000).toLong()
 
@@ -418,12 +471,28 @@ class PlaybackController(
         }
 
         // Local playback on this phone
-        val player = mediaController ?: return
+        val player = mediaController
+        if (player == null) {
+            controllerFuture?.addListener({
+                scope.launch(Dispatchers.Main) {
+                    playTrack(track, queue, forceLocal, startPositionMs)
+                }
+            }, { runnable -> runnable.run() })
+            return
+        }
 
         // Claim active device so server and webapp know this phone is now active
         if (isSyncConnected) {
-            deviceSyncManager.claimActiveDevice(0L, trackDurationMs)
+            deviceSyncManager.claimActiveDevice(startPositionMs, trackDurationMs, track.id)
         }
+
+        // Apply repeat mode to player
+        val exoRepeatMode = when (_playbackState.value.repeatMode) {
+            RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+            RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+        }
+        player.repeatMode = exoRepeatMode
 
         // Determine if local downloaded file is available
         val uri = if (hasLocalAudio) {
@@ -434,8 +503,8 @@ class PlaybackController(
             Uri.parse("$serverUrl/api/stream/${track.id}?token=$token")
         }
 
-        val localCover = localStorageManager.getCoverFile(track.id)
-        val coverUri = if (localCover.exists() && localCover.length() > 0) {
+        val localCover = localStorageManager.getOrExtractCoverFile(track.id, track.localFilePath)
+        val coverUri = if (localCover != null && localCover.exists() && localCover.length() > 0) {
             Uri.fromFile(localCover)
         } else {
             Uri.parse("${userPreferences.getServerUrl()}/api/cover/${track.id}?token=${userPreferences.getToken() ?: ""}")
@@ -454,17 +523,25 @@ class PlaybackController(
             .setMediaMetadata(metadata)
             .build()
 
-        player.setMediaItem(mediaItem)
+        if (startPositionMs > 0) {
+            player.setMediaItem(mediaItem, startPositionMs)
+        } else {
+            player.setMediaItem(mediaItem)
+        }
         player.prepare()
+        player.playWhenReady = true
         player.play()
+        if (startPositionMs > 0) {
+            player.seekTo(startPositionMs)
+        }
 
         currentTrackPlayStartTime = System.currentTimeMillis()
         _playbackState.update {
             it.copy(
                 currentTrack = track,
-                isPlaying = false,
+                isPlaying = true,
                 isBuffering = true,
-                currentPositionMs = 0L,
+                currentPositionMs = startPositionMs,
                 durationMs = trackDurationMs,
                 isActiveDevice = true,
                 activeDeviceName = null
@@ -474,11 +551,12 @@ class PlaybackController(
         if (isSyncConnected) {
             deviceSyncManager.broadcastPlaybackState(
                 trackId = track.id,
-                positionMs = 0L,
+                positionMs = startPositionMs,
                 durationMs = trackDurationMs,
-                isPlaying = false,
+                isPlaying = true,
                 isLoop = _playbackState.value.repeatMode != RepeatMode.OFF,
-                isShuffle = _playbackState.value.shuffleModeEnabled
+                isShuffle = _playbackState.value.shuffleModeEnabled,
+                forceClaim = forceLocal
             )
         }
     }
@@ -488,15 +566,22 @@ class PlaybackController(
         val pos = _playbackState.value.currentPositionMs
         val dur = _playbackState.value.durationMs
 
-        deviceSyncManager.claimActiveDevice(pos, dur)
+        deviceSyncManager.claimActiveDevice(pos, dur, current.id)
         _playbackState.update {
             it.copy(
                 isActiveDevice = true,
                 activeDeviceName = null
             )
         }
-        playTrack(current, _currentQueue.value.ifEmpty { listOf(current) }, forceLocal = true)
-        seekTo(pos)
+        playTrack(current, _currentQueue.value.ifEmpty { listOf(current) }, forceLocal = true, startPositionMs = pos)
+        mediaController?.let { p ->
+            p.playWhenReady = true
+            p.play()
+            if (pos > 0) {
+                p.seekTo(pos)
+            }
+        }
+        broadcastPlaybackState(overridePositionMs = pos, overridePlaying = true, forceClaim = true)
     }
 
     fun togglePlayPause() {
@@ -645,9 +730,17 @@ class PlaybackController(
     fun setRepeatMode(mode: RepeatMode) {
         _playbackState.update { it.copy(repeatMode = mode) }
 
+        val exoRepeatMode = when (mode) {
+            RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+            RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+        }
+        mediaController?.repeatMode = exoRepeatMode
+
         if (!_playbackState.value.isActiveDevice) {
             val payload = JSONObject().apply {
                 put("loop", mode != RepeatMode.OFF)
+                put("repeatMode", mode.name)
             }
             deviceSyncManager.sendRemoteControl("loop", payload)
             return

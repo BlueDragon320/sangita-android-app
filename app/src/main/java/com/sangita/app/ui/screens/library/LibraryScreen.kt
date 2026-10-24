@@ -1,5 +1,7 @@
 package com.sangita.app.ui.screens.library
 
+import com.sangita.app.data.local.storage.LocalStorageManager
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -785,10 +787,13 @@ private fun ThumbnailQuadrant(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val coverUrl = "$serverUrl/api/cover/$trackId?token=${token ?: ""}"
-    val request = remember(coverUrl) {
+    val localCover = remember(trackId) {
+        LocalStorageManager.getOrExtractCoverFile(context, trackId)
+    }
+    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/$trackId?token=${token ?: ""}"
+    val request = remember(coverModel) {
         ImageRequest.Builder(context)
-            .data(coverUrl)
+            .data(coverModel)
             .size(96, 96)
             .crossfade(100)
             .build()

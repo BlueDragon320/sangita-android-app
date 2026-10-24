@@ -1,5 +1,7 @@
 package com.sangita.app.ui.screens.playlist
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,6 +40,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,12 +59,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.sangita.app.data.local.storage.LocalStorageManager
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.TrackItemRow
+import kotlin.math.absoluteValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.sangita.app.ui.theme.DarkBorder
 import com.sangita.app.ui.theme.Emerald500
 import com.sangita.app.ui.theme.SangitaBlack
@@ -96,17 +104,73 @@ fun PlaylistDetailScreen(
     val themeColors = SangitaThemeColors.current
     val isLight = themeColors.background.luminance() > 0.5f
 
-    // In light mode, maintain clean contrast using theme background; in dark mode, deep olive-forest gradient into background
+    val context = LocalContext.current
+    val representativeTrack = remember(tracks) {
+        tracks.firstOrNull() ?: tracks.getOrNull(1)
+    }
+
+    var dominantColor by remember(viewModel.playlistName) {
+        // Deterministic seed based on playlist name as zero-latency default
+        val hue = (viewModel.playlistName.hashCode().absoluteValue % 360).toFloat()
+        mutableStateOf(Color.hsl(hue, 0.45f, 0.20f))
+    }
+
+    LaunchedEffect(representativeTrack?.id) {
+        val track = representativeTrack ?: return@LaunchedEffect
+        val localCover = LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
+        val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "${viewModel.serverUrl}/api/cover/${track.id}?token=${viewModel.token ?: ""}"
+
+        withContext(Dispatchers.IO) {
+            try {
+                val imageLoader = coil.Coil.imageLoader(context)
+                val req = ImageRequest.Builder(context)
+                    .data(coverModel)
+                    .allowHardware(false)
+                    .size(256, 256)
+                    .build()
+                val result = imageLoader.execute(req)
+                if (result is coil.request.SuccessResult) {
+                    val bitmap = (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                    if (bitmap != null) {
+                        val palette = Palette.from(bitmap).generate()
+                        val colorInt = palette.getVibrantColor(
+                            palette.getDominantColor(
+                                palette.getDarkVibrantColor(
+                                    palette.getMutedColor(0)
+                                )
+                            )
+                        )
+                        if (colorInt != 0) {
+                            withContext(Dispatchers.Main) {
+                                dominantColor = Color(colorInt)
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    val animatedDominantColor by animateColorAsState(
+        targetValue = dominantColor,
+        animationSpec = tween(durationMillis = 600),
+        label = "PlaylistDominantColor"
+    )
+
+    // Dynamic background gradient based on album art / palette
     val gradientColors = if (isLight) {
         listOf(
+            animatedDominantColor.copy(alpha = 0.25f),
+            animatedDominantColor.copy(alpha = 0.10f),
+            animatedDominantColor.copy(alpha = 0.03f),
             themeColors.background,
             themeColors.background
         )
     } else {
         listOf(
-            Color(0xFF1B3D1E), // Deep forest green
-            Color(0xFF122814),
-            Color(0xFF09140A),
+            animatedDominantColor.copy(alpha = 0.55f),
+            animatedDominantColor.copy(alpha = 0.25f),
+            animatedDominantColor.copy(alpha = 0.08f),
             themeColors.background,
             themeColors.background
         )
@@ -381,10 +445,13 @@ private fun CollageCell(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val coverUrl = "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
-    val imageRequest = remember(coverUrl) {
+    val localCover = remember(track.id) {
+        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
+    }
+    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val imageRequest = remember(coverModel) {
         ImageRequest.Builder(context)
-            .data(coverUrl)
+            .data(coverModel)
             .size(200, 200)
             .crossfade(100)
             .build()

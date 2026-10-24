@@ -44,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import com.sangita.app.data.local.storage.LocalStorageManager
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -100,11 +101,14 @@ fun PlayerScreen(
     var showDevicesSheet by remember { mutableStateOf(false) }
     val track = state.currentTrack ?: return
 
-    val coverUrl = "${viewModel.serverUrl}/api/cover/${track.id}?token=${viewModel.token ?: ""}"
+    val context = LocalContext.current
+    val localCover = remember(track.id) {
+        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
+    }
+    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "${viewModel.serverUrl}/api/cover/${track.id}?token=${viewModel.token ?: ""}"
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val context = LocalContext.current
     val activity = context.findActivity()
     val window = activity?.window
     var isFullscreen by remember { mutableStateOf(false) }
@@ -168,7 +172,7 @@ fun PlayerScreen(
                 }
 
                 AsyncImage(
-                    model = coverUrl,
+                    model = coverModel,
                     contentDescription = track.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -443,7 +447,7 @@ fun PlayerScreen(
                 contentAlignment = Alignment.Center
             ) {
                 AsyncImage(
-                    model = coverUrl,
+                    model = coverModel,
                     contentDescription = track.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
