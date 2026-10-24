@@ -1,6 +1,5 @@
 package com.sangita.app.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -9,8 +8,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,12 +28,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -59,9 +57,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -69,13 +70,8 @@ import coil.request.ImageRequest
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.download.DownloadFormatting
 import com.sangita.app.download.DownloadTask
+import com.sangita.app.ui.theme.SangitaRedLight
 import com.sangita.app.ui.theme.SangitaThemeColors
-
-private val AccentCyan = Color(0xFF38BDF8)
-private val DarkCardBg = Color(0xFF111622)
-private val DarkBorderColor = Color(0xFF1A2234)
-private val SlateTextSecondary = Color(0xFF94A3B8)
-private val SlateTextMuted = Color(0xFF64748B)
 
 @Composable
 fun DownloadQueueIconButton(
@@ -83,9 +79,10 @@ fun DownloadQueueIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = SangitaThemeColors.current
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val alphaPulse by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
+        initialValue = 0.5f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
             animation = tween(900, easing = LinearEasing),
@@ -95,20 +92,29 @@ fun DownloadQueueIconButton(
     )
 
     Box(
-        modifier = modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(DarkCardBg)
-            .border(1.dp, if (activeCount > 0) AccentCyan.copy(alpha = alphaPulse) else DarkBorderColor, CircleShape)
-            .clickable(onClick = onClick),
+        modifier = modifier.size(36.dp),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Download,
-            contentDescription = "Downloads",
-            tint = if (activeCount > 0) AccentCyan else SlateTextSecondary,
-            modifier = Modifier.size(19.dp)
-        )
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(colors.elevated)
+                .border(
+                    width = 1.dp,
+                    color = if (activeCount > 0) colors.accent.copy(alpha = alphaPulse) else colors.border,
+                    shape = CircleShape
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Download,
+                contentDescription = "Downloads",
+                tint = if (activeCount > 0) colors.accent else colors.lavender,
+                modifier = Modifier.size(18.dp)
+            )
+        }
 
         if (activeCount > 0) {
             Box(
@@ -116,14 +122,16 @@ fun DownloadQueueIconButton(
                     .align(Alignment.TopEnd)
                     .size(15.dp)
                     .clip(CircleShape)
-                    .background(AccentCyan),
+                    .background(colors.accent)
+                    .border(1.2.dp, colors.elevated, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = if (activeCount > 9) "9+" else "$activeCount",
-                    color = Color.Black,
-                    fontSize = 9.sp,
+                    color = colors.textPrimary,
+                    fontSize = 8.5.sp,
                     fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
                     lineHeight = 9.sp
                 )
             }
@@ -144,6 +152,7 @@ fun DownloadQueueBottomSheet(
     onDismiss: () -> Unit,
     onNavigateToDownloads: () -> Unit
 ) {
+    val colors = SangitaThemeColors.current
     val activeTasks = remember(downloadTasks) {
         downloadTasks.filter { it.status == DownloadStatus.DOWNLOADING }
     }
@@ -155,23 +164,24 @@ fun DownloadQueueBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = DarkCardBg,
+        containerColor = colors.elevated,
         scrimColor = Color.Black.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
             Box(
                 modifier = Modifier
-                    .padding(vertical = 10.dp)
+                    .padding(top = 10.dp, bottom = 8.dp)
                     .width(36.dp)
                     .height(4.dp)
                     .clip(CircleShape)
-                    .background(DarkBorderColor)
+                    .background(colors.border)
             )
         }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp)
+                .padding(horizontal = 20.dp, vertical = 4.dp)
         ) {
             // Header Row
             Row(
@@ -184,13 +194,14 @@ fun DownloadQueueBottomSheet(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(if (hasTasks) AccentCyan.copy(alpha = 0.18f) else DarkBorderColor.copy(alpha = 0.4f)),
+                            .background(if (hasTasks) colors.accent.copy(alpha = 0.15f) else colors.card)
+                            .border(1.dp, if (hasTasks) colors.accent.copy(alpha = 0.35f) else colors.border, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Download,
                             contentDescription = null,
-                            tint = if (hasTasks) AccentCyan else SlateTextSecondary,
+                            tint = if (hasTasks) colors.accent else colors.lavender,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -200,22 +211,32 @@ fun DownloadQueueBottomSheet(
                             text = "Live Downloads",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = colors.textPrimary
                         )
-                        val subtitle = when {
-                            activeTasks.isNotEmpty() && totalSpeedBytesPerSec > 0 ->
-                                "${activeTasks.size} downloading • ⚡ ${DownloadFormatting.formatSpeed(totalSpeedBytesPerSec)}"
-                            activeTasks.isNotEmpty() ->
-                                "${activeTasks.size} downloading"
-                            queuedTasks.isNotEmpty() ->
-                                "${queuedTasks.size} queued"
-                            else -> "All downloads complete"
+                        if (activeTasks.isNotEmpty() && totalSpeedBytesPerSec > 0) {
+                            Text(
+                                text = buildAnnotatedString {
+                                    withStyle(SpanStyle(color = colors.lavender)) {
+                                        append("${activeTasks.size} downloading • ")
+                                    }
+                                    withStyle(SpanStyle(color = colors.accent, fontWeight = FontWeight.Bold)) {
+                                        append("⚡ ${DownloadFormatting.formatSpeed(totalSpeedBytesPerSec)}")
+                                    }
+                                },
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        } else {
+                            val subtitleText = when {
+                                activeTasks.isNotEmpty() -> "${activeTasks.size} downloading"
+                                queuedTasks.isNotEmpty() -> "${queuedTasks.size} queued"
+                                else -> "All downloads complete"
+                            }
+                            Text(
+                                text = subtitleText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (activeTasks.isNotEmpty()) colors.lavender else colors.textMuted
+                            )
                         }
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (activeTasks.isNotEmpty()) AccentCyan else SlateTextMuted
-                        )
                     }
                 }
 
@@ -223,26 +244,32 @@ fun DownloadQueueBottomSheet(
                     if (hasTasks) {
                         TextButton(
                             onClick = onCancelAll,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
                                 text = "Cancel All",
-                                color = Color(0xFFEF4444),
+                                color = SangitaRedLight,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+                        Spacer(modifier = Modifier.width(4.dp))
                     }
 
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(colors.card)
+                            .border(1.dp, colors.border, CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = SlateTextMuted,
-                            modifier = Modifier.size(18.dp)
+                            tint = colors.textMuted,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -252,68 +279,78 @@ fun DownloadQueueBottomSheet(
 
             if (!hasTasks) {
                 // Empty State
-                Column(
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 36.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .padding(vertical = 24.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = colors.card),
+                    border = BorderStroke(1.dp, colors.border)
                 ) {
-                    Box(
+                    Column(
                         modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF080B11))
-                            .border(1.dp, DarkBorderColor, CircleShape),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = null,
-                            tint = SlateTextMuted,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text(
-                        text = "No Active Downloads",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Songs and playlists you download for offline playback will appear here with live speed and progress.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SlateTextSecondary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 24.dp)
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = {
-                            onDismiss()
-                            onNavigateToDownloads()
-                        },
-                        shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF182030),
-                            contentColor = Color.White
-                        ),
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Folder,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = AccentCyan
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(colors.elevated)
+                                .border(1.dp, colors.border, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = null,
+                                tint = colors.lavender.copy(alpha = 0.8f),
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(14.dp))
                         Text(
-                            text = "View Offline Library",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
+                            text = "No Active Downloads",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.textPrimary
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Songs and playlists you download for offline playback will appear here with live speed and progress.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.textSecondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Spacer(modifier = Modifier.height(18.dp))
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onNavigateToDownloads()
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colors.elevated,
+                                contentColor = colors.textPrimary
+                            ),
+                            border = BorderStroke(1.dp, colors.border),
+                            modifier = Modifier.height(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Folder,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = colors.accent
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "View Offline Library",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             } else {
@@ -330,7 +367,7 @@ fun DownloadQueueBottomSheet(
                                 text = "DOWNLOADING (${activeTasks.size})",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = SlateTextMuted,
+                                color = colors.textMuted,
                                 letterSpacing = 1.sp,
                                 modifier = Modifier.padding(bottom = 2.dp)
                             )
@@ -353,7 +390,7 @@ fun DownloadQueueBottomSheet(
                                 text = "WAITING IN QUEUE (${queuedTasks.size})",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = SlateTextMuted,
+                                color = colors.textMuted,
                                 letterSpacing = 1.sp,
                                 modifier = Modifier.padding(bottom = 2.dp)
                             )
@@ -370,13 +407,13 @@ fun DownloadQueueBottomSheet(
                     }
 
                     item {
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF080B11))
-                                .border(1.dp, DarkBorderColor, RoundedCornerShape(12.dp))
+                                .background(colors.card)
+                                .border(1.dp, colors.border, RoundedCornerShape(12.dp))
                                 .clickable {
                                     onDismiss()
                                     onNavigateToDownloads()
@@ -386,25 +423,34 @@ fun DownloadQueueBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Folder,
-                                    contentDescription = null,
-                                    tint = AccentCyan,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.elevated)
+                                        .border(1.dp, colors.border, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = null,
+                                        tint = colors.accent,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = "View Offline Downloads Library",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White,
+                                    color = colors.textPrimary,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
-                            Text(
-                                text = ">",
-                                color = SlateTextMuted,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = colors.textMuted,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -421,6 +467,7 @@ private fun DownloadingTaskCard(
     token: String?,
     onCancel: () -> Unit
 ) {
+    val colors = SangitaThemeColors.current
     val animatedProgress by animateFloatAsState(
         targetValue = (task.progress / 100f).coerceIn(0f, 1f),
         animationSpec = tween(300, easing = FastOutSlowInEasing),
@@ -429,9 +476,9 @@ private fun DownloadingTaskCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF080B11)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorderColor)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.card),
+        border = BorderStroke(1.dp, colors.border)
     ) {
         Column(
             modifier = Modifier
@@ -456,7 +503,7 @@ private fun DownloadingTaskCard(
                         text = task.trackTitle,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
+                        color = colors.textPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -464,7 +511,7 @@ private fun DownloadingTaskCard(
                     Text(
                         text = task.artist,
                         style = MaterialTheme.typography.labelSmall,
-                        color = SlateTextSecondary,
+                        color = colors.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -472,18 +519,20 @@ private fun DownloadingTaskCard(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
+                // Subtle round icon button (size 30dp) with colors.elevated and colors.textMuted
                 IconButton(
                     onClick = onCancel,
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(30.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF182030))
+                        .background(colors.elevated)
+                        .border(1.dp, colors.border, CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Cancel Download",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        tint = colors.textMuted,
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
@@ -495,10 +544,10 @@ private fun DownloadingTaskCard(
                 progress = { animatedProgress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(5.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = AccentCyan,
-                trackColor = Color(0xFF182030),
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+                color = colors.accent,
+                trackColor = colors.elevated,
                 strokeCap = StrokeCap.Round
             )
 
@@ -519,14 +568,14 @@ private fun DownloadingTaskCard(
                 Text(
                     text = downloadedText,
                     style = MaterialTheme.typography.labelSmall,
-                    color = SlateTextSecondary,
+                    color = colors.textSecondary,
                     fontSize = 11.sp
                 )
 
                 Text(
                     text = "⚡ ${DownloadFormatting.formatSpeed(task.speedBytesPerSec)}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = AccentCyan,
+                    color = colors.lavender,
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp
                 )
@@ -542,11 +591,13 @@ private fun QueuedTaskCard(
     token: String?,
     onCancel: () -> Unit
 ) {
+    val colors = SangitaThemeColors.current
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF080B11)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorderColor.copy(alpha = 0.6f))
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.card),
+        border = BorderStroke(1.dp, colors.border)
     ) {
         Row(
             modifier = Modifier
@@ -567,7 +618,7 @@ private fun QueuedTaskCard(
                     text = task.trackTitle,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = colors.textPrimary.copy(alpha = 0.9f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -576,14 +627,14 @@ private fun QueuedTaskCard(
                     Icon(
                         imageVector = Icons.Default.HourglassEmpty,
                         contentDescription = null,
-                        tint = SlateTextMuted,
+                        tint = colors.textMuted,
                         modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Waiting in queue...",
                         style = MaterialTheme.typography.labelSmall,
-                        color = SlateTextMuted,
+                        color = colors.textMuted,
                         fontSize = 11.sp
                     )
                 }
@@ -594,12 +645,13 @@ private fun QueuedTaskCard(
                 modifier = Modifier
                     .size(28.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF182030))
+                    .background(colors.elevated)
+                    .border(1.dp, colors.border, CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Cancel",
-                    tint = SlateTextMuted,
+                    tint = colors.textMuted,
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -613,6 +665,7 @@ private fun TrackThumbnail(
     serverUrl: String,
     token: String?
 ) {
+    val colors = SangitaThemeColors.current
     val cleanUrl = remember(serverUrl) {
         if (serverUrl.startsWith("http://") || serverUrl.startsWith("https://")) serverUrl
         else "http://$serverUrl"
@@ -626,7 +679,8 @@ private fun TrackThumbnail(
         modifier = Modifier
             .size(42.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF182030)),
+            .background(colors.elevated)
+            .border(1.dp, colors.border, RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
         AsyncImage(
@@ -641,7 +695,7 @@ private fun TrackThumbnail(
         Icon(
             imageVector = Icons.Default.MusicNote,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.2f),
+            tint = colors.textMuted.copy(alpha = 0.35f),
             modifier = Modifier.size(20.dp)
         )
     }

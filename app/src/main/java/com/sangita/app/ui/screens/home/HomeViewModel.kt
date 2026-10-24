@@ -64,7 +64,7 @@ class HomeViewModel(
 
     val tracksMap: StateFlow<Map<String, Track>> = musicRepository.observeAllTracks()
         .map { list -> list.associateBy { it.id } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     init {
         viewModelScope.launch {
@@ -119,7 +119,7 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true) }
             musicRepository.refreshPlaylists()
-            loadHomeData()
+            loadHomeData(force = true)
             _uiState.update { it.copy(isSyncing = false) }
         }
     }

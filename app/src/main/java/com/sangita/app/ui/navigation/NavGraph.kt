@@ -33,8 +33,8 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-private const val MotionDurationEnter = 280
-private const val MotionDurationExit = 240
+private const val MotionDurationEnter = 220
+private const val MotionDurationExit = 200
 private val MotionEasing = FastOutSlowInEasing
 
 @Composable
@@ -53,34 +53,34 @@ fun SangitaNavGraph(
             slideIntoContainer(
                 AnimatedContentTransitionScope.SlideDirection.Start,
                 animationSpec = tween(MotionDurationEnter, easing = MotionEasing)
-            ) { fullWidth -> (fullWidth * 0.25f).toInt() } +
+            ) { fullWidth -> (fullWidth * 0.20f).toInt() } +
             fadeIn(
                 animationSpec = tween(MotionDurationEnter, easing = MotionEasing),
-                initialAlpha = 0.3f
+                initialAlpha = 0.35f
             )
         },
         exitTransition = {
             slideOutOfContainer(
                 AnimatedContentTransitionScope.SlideDirection.Start,
                 animationSpec = tween(MotionDurationExit, easing = MotionEasing)
-            ) { fullWidth -> -(fullWidth * 0.15f).toInt() } +
+            ) { fullWidth -> -(fullWidth * 0.12f).toInt() } +
             fadeOut(animationSpec = tween(MotionDurationExit, easing = MotionEasing))
         },
         popEnterTransition = {
             slideIntoContainer(
                 AnimatedContentTransitionScope.SlideDirection.End,
                 animationSpec = tween(MotionDurationEnter, easing = MotionEasing)
-            ) { fullWidth -> -(fullWidth * 0.15f).toInt() } +
+            ) { fullWidth -> -(fullWidth * 0.12f).toInt() } +
             fadeIn(
                 animationSpec = tween(MotionDurationEnter, easing = MotionEasing),
-                initialAlpha = 0.3f
+                initialAlpha = 0.35f
             )
         },
         popExitTransition = {
             slideOutOfContainer(
                 AnimatedContentTransitionScope.SlideDirection.End,
                 animationSpec = tween(MotionDurationExit, easing = MotionEasing)
-            ) { fullWidth -> (fullWidth * 0.25f).toInt() } +
+            ) { fullWidth -> (fullWidth * 0.20f).toInt() } +
             fadeOut(animationSpec = tween(MotionDurationExit, easing = MotionEasing))
         }
     ) {
@@ -118,12 +118,16 @@ fun SangitaNavGraph(
                 viewModel = homeVm,
                 onNavigateToLibrary = {
                     navController.navigate(Screen.Library.route) {
+                        popUpTo(Screen.Home.route) { saveState = true }
                         launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 onNavigateToDownloads = {
                     navController.navigate(Screen.Downloads.route) {
+                        popUpTo(Screen.Home.route) { saveState = true }
                         launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 onOpenFullPlayer = {
@@ -161,7 +165,9 @@ fun SangitaNavGraph(
                 },
                 onNavigateToDownloads = {
                     navController.navigate(Screen.Downloads.route) {
+                        popUpTo(Screen.Home.route) { saveState = true }
                         launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 onOpenFullPlayer = {

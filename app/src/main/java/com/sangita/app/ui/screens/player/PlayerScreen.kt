@@ -289,7 +289,7 @@ fun PlayerScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(text = formatSeconds(posSec), style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                        Text(text = formatSeconds(posSec), style = MaterialTheme.typography.labelSmall, color = Emerald500)
                         Text(text = formatSeconds(durSec), style = MaterialTheme.typography.labelSmall, color = TextMuted)
                     }
                 }
@@ -518,7 +518,7 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = formatSeconds(posSec), style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                Text(text = formatSeconds(posSec), style = MaterialTheme.typography.labelSmall, color = Emerald500)
                 Text(text = formatSeconds(durSec), style = MaterialTheme.typography.labelSmall, color = TextMuted)
             }
 

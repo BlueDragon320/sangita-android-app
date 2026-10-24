@@ -16,9 +16,10 @@ val AmbientBorderHi = Color(0xFF3A4256)        // Elevated borders
 val AmbientTextPrimary = Color(0xFFF1F2F7)     // Primary text
 val AmbientTextSecondary = Color(0xFF9299AE)   // Secondary text
 val AmbientTextMuted = Color(0xFF656D83)       // Muted text
-val AmbientAccentBlue = Color(0xFF4169E1)      // Accent royal blue
+val AmbientAccentBlue = Color(0xFFB0D8EC)      // Light Blue #B0D8EC accent
 val AmbientAuraBlue = Color(0xFF243F87)        // Soft ambient blue glow
 val AmbientLavender = Color(0xFF9A9FE8)        // Muted lavender
+val LightBlueAccent = Color(0xFFB0D8EC)        // Light Blue #B0D8EC
 
 // Backward-compatible Raw Static Values
 val RawSangitaBlack = Color(0xFF000000)
@@ -33,9 +34,9 @@ val RawSangitaBorder = AmbientBorder
 val RawSangitaBorderHi = AmbientBorderHi
 
 // Static highlights & constants
-val SangitaEmerald = AmbientLavender
-val SangitaEmeraldHi = Color(0xFFB4B8F0)
-val SangitaEmeraldDim = AmbientAuraBlue
+val SangitaEmerald = LightBlueAccent           // Light Blue #B0D8EC for active highlights, lyrics & devices
+val SangitaEmeraldHi = Color(0xFFD4ECF7)
+val SangitaEmeraldDim = Color(0xFF82B8D4)
 val SangitaZinc300 = AmbientTextSecondary
 
 val SangitaRed = Color(0xFFEF4444)

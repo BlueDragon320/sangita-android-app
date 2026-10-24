@@ -235,7 +235,7 @@ fun TrackItemRow(
                 Text(
                     text = durationFormatted,
                     style = MaterialTheme.typography.bodySmall,
-                    color = colors.textMuted,
+                    color = if (isPlayingThisTrack) colors.accent else colors.textMuted,
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp
                 )

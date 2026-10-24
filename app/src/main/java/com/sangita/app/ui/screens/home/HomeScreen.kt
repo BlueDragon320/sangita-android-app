@@ -1,23 +1,16 @@
 package com.sangita.app.ui.screens.home
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.res.painterResource
-import com.sangita.app.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DataUsage
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -63,14 +55,15 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.cos
-import kotlin.math.sin
+import com.sangita.app.R
 import com.sangita.app.data.local.preferences.UserPreferences
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Track
@@ -87,26 +80,14 @@ import java.util.Calendar
 fun AmbientAuraCanvas(
     modifier: Modifier = Modifier
 ) {
-    val transition = rememberInfiniteTransition(label = "ambient_glow")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(16000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "drift_phase"
-    )
-
     Spacer(
         modifier = modifier
             .fillMaxSize()
             .drawBehind {
                 val w = size.width
                 val h = size.height
-                // Soft deep-blue atmospheric glow drifting gently in the upper-middle area
-                val cx = w * 0.50f + (w * 0.08f) * cos(phase)
-                val cy = h * 0.24f + (h * 0.05f) * sin(phase)
+                // Atmospheric radial gradient drawn statically for 120 FPS buttery smooth scrolling
+                val center = Offset(w * 0.50f, h * 0.22f)
                 val radius = (w + h) * 0.44f
 
                 drawCircle(
@@ -116,11 +97,11 @@ fun AmbientAuraCanvas(
                             AmbientAuraBlue.copy(alpha = 0.10f),
                             Color.Transparent
                         ),
-                        center = Offset(cx, cy),
+                        center = center,
                         radius = radius
                     ),
                     radius = radius,
-                    center = Offset(cx, cy)
+                    center = center
                 )
             }
     )
@@ -163,7 +144,7 @@ fun HomeScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // Atmospheric deep-blue glow drift behind content
+        // Atmospheric deep-blue glow drawn statically behind content
         AmbientAuraCanvas(modifier = Modifier.fillMaxSize())
 
         Scaffold(
@@ -172,6 +153,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
+                        .padding(top = 8.dp)
                 ) {
                     TopAppBar(
                         modifier = Modifier.padding(top = 4.dp),
@@ -294,8 +276,8 @@ fun HomeScreen(
                     }
                     Spacer(modifier = Modifier.height(20.dp))
                     Text(
-                        text = "Device is offline",
-                        style = MaterialTheme.typography.titleLarge,
+                        text = "No Connection",
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = colors.textPrimary
                     )
@@ -361,49 +343,30 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 90.dp)
                 ) {
-                    // 1. WELCOME & QUICK ACTIONS
-                    item(contentType = "hero_banner") {
+                    // 1. QUICK ACTIONS: 2x LARGER DUAL BUTTONS (50/50 HORIZONTAL SPLIT)
+                    item(contentType = "quick_actions") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
                         ) {
-                            Text(
-                                text = "Welcome back,",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = colors.textPrimary,
-                                fontSize = 24.sp
-                            )
-                            Text(
-                                text = uiState.username,
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = colors.textPrimary,
-                                fontSize = 24.sp
-                            )
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // 3 Quick Action Cards
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                // 2x Larger Library Card
                                 ActionNavCard(
                                     title = "Library",
-                                    icon = Icons.Default.LibraryMusic,
+                                    subtitle = "Playlists & tracks",
+                                    painter = painterResource(id = R.drawable.ic_folder_music),
                                     modifier = Modifier.weight(1f),
                                     onClick = onNavigateToLibrary
                                 )
-                                ActionNavCard(
-                                    title = "Downloads",
-                                    icon = Icons.Default.Download,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = onNavigateToDownloads
-                                )
+
+                                // 2x Larger Storage / Data Usage Card
                                 ActionNavCard(
                                     title = dataUsageToday.ifBlank { "0 B" },
+                                    subtitle = "Data Today",
                                     icon = Icons.Default.DataUsage,
                                     modifier = Modifier.weight(1f),
                                     onClick = { viewModel.loadHomeData(force = true) }
@@ -419,7 +382,7 @@ fun HomeScreen(
                         )
                     }
 
-                    // 2. LISTENING OVERVIEW & 2x2 METRIC CARDS
+                    // 2. LISTENING OVERVIEW & 2x2 METRIC CARDS (CUSTOM SVG ICONS)
                     item(contentType = "metrics_grid") {
                         Column(
                             modifier = Modifier
@@ -478,13 +441,13 @@ fun HomeScreen(
                                 MetricOverviewCard(
                                     label = "Listening Time",
                                     value = formatListeningTime(totalSeconds),
-                                    icon = Icons.Default.Timer,
+                                    painter = painterResource(id = R.drawable.ic_stat_time),
                                     modifier = Modifier.weight(1f)
                                 )
                                 MetricOverviewCard(
                                     label = "Songs Played",
                                     value = "$totalPlays",
-                                    icon = Icons.Default.MusicNote,
+                                    icon = Icons.Default.GraphicEq,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -499,13 +462,13 @@ fun HomeScreen(
                                 MetricOverviewCard(
                                     label = "Tracks Explored",
                                     value = "$uniqueTracks",
-                                    icon = Icons.Default.GraphicEq,
+                                    painter = painterResource(id = R.drawable.ic_stat_route),
                                     modifier = Modifier.weight(1f)
                                 )
                                 MetricOverviewCard(
                                     label = "#1 Top Song",
                                     value = topSong?.name ?: "No plays yet",
-                                    icon = Icons.Default.Favorite,
+                                    painter = painterResource(id = R.drawable.ic_stat_star),
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -576,6 +539,7 @@ fun HomeScreen(
                 }
             }
         }
+        }
 
         // Settings Bottom Sheet
         if (uiState.showSettingsSheet) {
@@ -630,70 +594,131 @@ fun HomeScreen(
         }
     }
 }
-}
 
 @Composable
 private fun ActionNavCard(
     title: String,
-    icon: ImageVector,
+    subtitle: String,
     modifier: Modifier = Modifier,
+    painter: Painter? = null,
+    icon: ImageVector? = null,
     onClick: () -> Unit
 ) {
     val colors = SangitaThemeColors.current
-    Box(
+    Card(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(colors.card)
-            .border(1.dp, colors.border, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 9.dp),
-        contentAlignment = Alignment.Center
+            .height(88.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.card),
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(colors.elevated),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(colors.elevated)
+                        .border(1.dp, colors.border, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (painter != null) {
+                        Icon(
+                            painter = painter,
+                            contentDescription = null,
+                            tint = colors.lavender,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else if (icon != null) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = colors.lavender,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
                 Icon(
-                    imageVector = icon,
+                    imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = colors.lavender,
-                    modifier = Modifier.size(14.dp)
+                    tint = colors.textMuted,
+                    modifier = Modifier.size(16.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = 12.sp
-            )
-            Spacer(modifier = Modifier.width(2.dp))
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = colors.textMuted,
-                modifier = Modifier.size(13.dp)
-            )
+
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.height(1.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 11.sp
+                )
+            }
         }
     }
 }
 
 @Composable
+private fun ActionNavCard(
+    title: String,
+    subtitle: String,
+    painter: Painter,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) = ActionNavCard(
+    title = title,
+    subtitle = subtitle,
+    modifier = modifier,
+    painter = painter,
+    icon = null,
+    onClick = onClick
+)
+
+@Composable
+private fun ActionNavCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) = ActionNavCard(
+    title = title,
+    subtitle = subtitle,
+    modifier = modifier,
+    painter = null,
+    icon = icon,
+    onClick = onClick
+)
+
+@Composable
 private fun MetricOverviewCard(
     label: String,
     value: String,
-    icon: ImageVector,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    painter: Painter? = null,
+    icon: ImageVector? = null
 ) {
     val colors = SangitaThemeColors.current
     Card(
@@ -716,12 +741,21 @@ private fun MetricOverviewCard(
                     .border(1.dp, colors.border, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = colors.lavender,
-                    modifier = Modifier.size(15.dp)
-                )
+                if (painter != null) {
+                    Icon(
+                        painter = painter,
+                        contentDescription = null,
+                        tint = colors.lavender,
+                        modifier = Modifier.size(16.dp)
+                    )
+                } else if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = colors.lavender,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
 
             Column {
@@ -747,6 +781,34 @@ private fun MetricOverviewCard(
         }
     }
 }
+
+@Composable
+private fun MetricOverviewCard(
+    label: String,
+    value: String,
+    painter: Painter,
+    modifier: Modifier = Modifier
+) = MetricOverviewCard(
+    label = label,
+    value = value,
+    modifier = modifier,
+    painter = painter,
+    icon = null
+)
+
+@Composable
+private fun MetricOverviewCard(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier
+) = MetricOverviewCard(
+    label = label,
+    value = value,
+    modifier = modifier,
+    painter = null,
+    icon = icon
+)
 
 fun formatListeningTime(seconds: Long): String {
     val hours = seconds / 3600
