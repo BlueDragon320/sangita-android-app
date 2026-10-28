@@ -35,6 +35,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sangita.app.data.local.storage.LocalStorageManager
+import com.sangita.app.ui.components.rememberCoverModel
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.formatSeconds
@@ -63,11 +65,11 @@ fun DownloadsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val downloadedTracks by viewModel.downloadedTracks.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
+    val playbackState = viewModel.playbackState.collectAsState()
     val colors = SangitaThemeColors.current
 
-    val currentPlayingTrackId = remember(playbackState.currentTrack?.id) {
-        playbackState.currentTrack?.id
+    val currentPlayingTrackId by remember(playbackState) {
+        derivedStateOf { playbackState.value.currentTrack?.id }
     }
 
     Scaffold(
@@ -87,9 +89,10 @@ fun DownloadsScreen(
             )
         },
         bottomBar = {
-            if (playbackState.currentTrack != null) {
+            val miniPlaybackState by viewModel.playbackState.collectAsState()
+            if (miniPlaybackState.currentTrack != null) {
                 MiniPlayer(
-                    playbackState = playbackState,
+                    playbackState = miniPlaybackState,
                     serverUrl = viewModel.serverUrl,
                     token = viewModel.token,
                     onTogglePlayPause = viewModel.playbackController::togglePlayPause,
@@ -205,15 +208,11 @@ fun DownloadedTrackRow(
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
-    val localCover = remember(track.id) {
-        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
-    }
-    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val coverModel = rememberCoverModel(track.id, track.localFilePath, serverUrl, token, track.isDownloaded)
     val imageRequest = remember(coverModel) {
         ImageRequest.Builder(context)
             .data(coverModel)
             .size(128, 128)
-            .crossfade(100)
             .build()
     }
     val colors = SangitaThemeColors.current

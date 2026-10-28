@@ -1,6 +1,7 @@
 package com.sangita.app.ui.screens.library
 
 import com.sangita.app.data.local.storage.LocalStorageManager
+import com.sangita.app.ui.components.rememberCoverModel
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,6 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -97,7 +99,7 @@ fun LibraryScreen(
     val uiState by viewModel.uiState.collectAsState()
     val filteredTracks by viewModel.filteredTracks.collectAsState()
     val filteredPlaylists by viewModel.filteredPlaylists.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
+    val playbackState = viewModel.playbackState.collectAsState()
     val devices by viewModel.devices.collectAsState()
     val activeDownloads by viewModel.activeDownloads.collectAsState()
     val activeDownloadsCount by viewModel.activeDownloadsCount.collectAsState()
@@ -106,8 +108,8 @@ fun LibraryScreen(
 
     val colors = SangitaThemeColors.current
 
-    val currentPlayingTrackId = remember(playbackState.currentTrack?.id) {
-        playbackState.currentTrack?.id
+    val currentPlayingTrackId by remember(playbackState) {
+        derivedStateOf { playbackState.value.currentTrack?.id }
     }
 
     val regularPlaylists = remember(filteredPlaylists) {
@@ -293,9 +295,10 @@ fun LibraryScreen(
             }
         },
         bottomBar = {
-            if (playbackState.currentTrack != null) {
+            val miniPlaybackState by viewModel.playbackState.collectAsState()
+            if (miniPlaybackState.currentTrack != null) {
                 MiniPlayer(
-                    playbackState = playbackState,
+                    playbackState = miniPlaybackState,
                     serverUrl = viewModel.serverUrl,
                     token = viewModel.token,
                     onTogglePlayPause = viewModel.playbackController::togglePlayPause,
@@ -787,15 +790,11 @@ private fun ThumbnailQuadrant(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val localCover = remember(trackId) {
-        LocalStorageManager.getOrExtractCoverFile(context, trackId)
-    }
-    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/$trackId?token=${token ?: ""}"
+    val coverModel = rememberCoverModel(trackId, null, serverUrl, token)
     val request = remember(coverModel) {
         ImageRequest.Builder(context)
             .data(coverModel)
             .size(96, 96)
-            .crossfade(100)
             .build()
     }
 

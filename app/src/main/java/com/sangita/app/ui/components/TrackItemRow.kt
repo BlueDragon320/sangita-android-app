@@ -88,15 +88,11 @@ fun TrackItemRow(
         }
     }
 
-    val localCover = remember(track.id) {
-        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
-    }
-    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val coverModel = rememberCoverModel(track.id, track.localFilePath, serverUrl, token, track.isDownloaded)
     val imageRequest = remember(coverModel) {
         ImageRequest.Builder(context)
             .data(coverModel)
             .size(128, 128)
-            .crossfade(100)
             .build()
     }
 
@@ -231,7 +227,7 @@ fun TrackItemRow(
 
                 // Visible duration timestamp
                 val sec = track.durationSeconds ?: 0.0
-                val durationFormatted = if (sec > 0.0) formatSeconds(sec) else "3:24"
+                val durationFormatted = if (sec > 0.0) formatSeconds(sec) else "—"
                 Text(
                     text = durationFormatted,
                     style = MaterialTheme.typography.bodySmall,

@@ -1,6 +1,7 @@
 package com.sangita.app.ui.screens.lyrics
 
 import com.sangita.app.data.local.storage.LocalStorageManager
+import com.sangita.app.ui.components.rememberCoverModel
 
 import android.app.Activity
 import android.content.res.Configuration
@@ -136,16 +137,7 @@ fun LyricsOverlay(
     val token = viewModel.token ?: remember(context) { UserPreferences(context).getToken() }
 
     val track = playbackState.currentTrack
-    val localCover = remember(track?.id) {
-        if (track != null) {
-            LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
-        } else null
-    }
-    val coverModel: Any? = if (localCover != null && localCover.exists()) {
-        localCover
-    } else if (track != null && serverUrl.isNotEmpty()) {
-        "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
-    } else null
+    val coverModel = rememberCoverModel(track?.id, track?.localFilePath, serverUrl, token, track?.isDownloaded)
 
     val listState = rememberLazyListState()
 

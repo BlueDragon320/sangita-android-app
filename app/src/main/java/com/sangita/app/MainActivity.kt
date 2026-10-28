@@ -19,6 +19,18 @@ class MainActivity : ComponentActivity() {
                 android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
+        // Ask Android for the fastest refresh rate at the current display resolution.
+        // The system can still reduce it for battery, thermal or user preferences.
+        @Suppress("DEPRECATION")
+        val display = windowManager.defaultDisplay
+        val currentMode = display.mode
+        val preferredRate = display.supportedModes
+            .filter { it.physicalWidth == currentMode.physicalWidth && it.physicalHeight == currentMode.physicalHeight }
+            .maxOfOrNull { it.refreshRate }
+        if (preferredRate != null) {
+            window.attributes = window.attributes.apply { preferredRefreshRate = preferredRate }
+        }
+
         enableEdgeToEdge()
 
         val app = application as SangitaApplication

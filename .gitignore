@@ -61,3 +61,7 @@ markdown/
 *.md
 !README.md
 
+
+# Signing keys and credentials must never be committed
+*.jks
+*.keystore

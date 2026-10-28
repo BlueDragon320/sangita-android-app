@@ -42,6 +42,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +64,7 @@ import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sangita.app.data.local.storage.LocalStorageManager
+import com.sangita.app.ui.components.rememberCoverModel
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.MiniPlayer
@@ -91,16 +93,16 @@ fun PlaylistDetailScreen(
     onOpenFullPlayer: () -> Unit
 ) {
     val tracks by viewModel.tracks.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
+    val playbackState = viewModel.playbackState.collectAsState()
     val devices by viewModel.devices.collectAsState()
     var showDevicesSheet by remember { mutableStateOf(false) }
     val username = viewModel.userPreferences.getUsername() ?: "User"
 
-    val currentPlayingTrackId = remember(playbackState.currentTrack?.id) {
-        playbackState.currentTrack?.id
+    val currentPlayingTrackId by remember(playbackState) {
+        derivedStateOf { playbackState.value.currentTrack?.id }
     }
 
-    val totalDurationSeconds = tracks.mapNotNull { it.durationSeconds }.sum()
+    val totalDurationSeconds = remember(tracks) { tracks.sumOf { it.durationSeconds ?: 0.0 } }
     val themeColors = SangitaThemeColors.current
     val isLight = themeColors.background.luminance() > 0.5f
 
@@ -117,11 +119,10 @@ fun PlaylistDetailScreen(
 
     LaunchedEffect(representativeTrack?.id) {
         val track = representativeTrack ?: return@LaunchedEffect
-        val localCover = LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
-        val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "${viewModel.serverUrl}/api/cover/${track.id}?token=${viewModel.token ?: ""}"
-
         withContext(Dispatchers.IO) {
             try {
+                val localCover = LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
+                val coverModel: Any = localCover ?: "${viewModel.serverUrl}/api/cover/${track.id}?token=${viewModel.token ?: ""}"
                 val imageLoader = coil.Coil.imageLoader(context)
                 val req = ImageRequest.Builder(context)
                     .data(coverModel)
@@ -199,9 +200,10 @@ fun PlaylistDetailScreen(
             )
         },
         bottomBar = {
-            if (playbackState.currentTrack != null) {
+            val miniPlaybackState by viewModel.playbackState.collectAsState()
+            if (miniPlaybackState.currentTrack != null) {
                 MiniPlayer(
-                    playbackState = playbackState,
+                    playbackState = miniPlaybackState,
                     serverUrl = viewModel.serverUrl,
                     token = viewModel.token,
                     onTogglePlayPause = viewModel.playbackController::togglePlayPause,
@@ -445,10 +447,7 @@ private fun CollageCell(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val localCover = remember(track.id) {
-        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
-    }
-    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val coverModel = rememberCoverModel(track.id, track.localFilePath, serverUrl, token, track.isDownloaded)
     val imageRequest = remember(coverModel) {
         ImageRequest.Builder(context)
             .data(coverModel)

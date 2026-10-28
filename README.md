@@ -4,20 +4,20 @@
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-2024.10.01-4285F4?logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin)](https://kotlinlang.org/)
 [![Media3](https://img.shields.io/badge/AndroidX%20Media3-1.5.1-orange)](https://developer.android.com/media/media3)
-[![Display](https://img.shields.io/badge/Display-120%20FPS%20Fluid%20Motion-purple)](https://developer.android.com/)
+[![Display](https://img.shields.io/badge/Display-high--refresh%20support-purple)](https://developer.android.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-**Sangita** is an audiophile-grade, cloud-powered native Android music streaming client designed from the ground up for high-refresh-rate displays (90Hz / 120Hz / 144Hz). Built with modern Jetpack Compose, Material 3, AndroidX Media3 ExoPlayer, and real-time Socket.IO synchronization, Sangita seamlessly bridges local playback, remote cloud streaming, and synchronized multi-device listening.
+**Sangita** is a native Android client for the self-hosted [Sangita music server](https://github.com/BlueDragon320/sangita). Built with modern Jetpack Compose, Material 3, AndroidX Media3 ExoPlayer, and real-time Socket.IO synchronization, Sangita seamlessly bridges local playback, remote cloud streaming, and synchronized multi-device listening.
 
 ---
 
 ## 🚀 Instant Downloads
 
-Get started immediately with pre-built binaries:
+**Note:** The bundled APK predates the latest source changes, including the scrolling and seeking fixes. Build from source to try the current version. The existing binaries are retained here for convenience:
 
 | Platform | Download Link | Description |
 |:---|:---|:---|
-| 📱 **Android Phone / Tablet** | [**Download Sangita-v1.0.0.apk**](./releases/Sangita-v1.0.0.apk) | Direct installable APK for Android (API 26 to 35+). Supports 120Hz displays, background playback, and offline mode. |
+| 📱 **Android Phone / Tablet** | [**Download Sangita-v1.0.0.apk**](./releases/Sangita-v1.0.0.apk) | Direct installable APK for Android (API 26 to 35+). Supports background playback and offline mode. |
 | 💻 **Windows Desktop** | [**Download Sangita-Desktop.exe**](./releases/Sangita-Desktop.exe) | Portable, standalone Windows desktop client. Double-click to run without any installation. |
 
 ### How to Install on Android
@@ -30,15 +30,16 @@ Get started immediately with pre-built binaries:
 
 ## ✨ Key Features
 
-### ⚡ 120 FPS Navigation & Motion Architecture
-- **Unified Material 3 Spatial Navigation**: Synchronized lateral enter/exit slides (`0.25f` entering, `-0.15f` exiting) with `FastOutSlowInEasing`.
-- **Zero Black Dip**: Overlapping alpha transitions with `initialAlpha = 0.3f` eliminate mid-transition window black flashes.
-- **GPU Hardware Layer Isolation**: Offscreen compositing (`CompositingStrategy.Offscreen`) on all root screens isolates complex UI trees into GPU texture buffers for first-frame hitch elimination.
-- **Android 14 & 15 Predictive Back**: Native gesture tracking via `enableOnBackInvokedCallback` allows seamless edge-swipe back navigation.
+### ⚡ Responsive browsing and playback
+- Library, playlist, home and download screens use lazy lists with stable item keys.
+- Artwork lookup and extraction run off the UI thread, with a small short-lived cache for repeated lookups. Playback progress updates are kept separate from the list screens.
+- The app requests the highest refresh rate supported at the current screen resolution. Android and the phone's display, battery and thermal settings ultimately determine the rate; a higher refresh rate is not guaranteed.
+- Dragging the player progress bar previews a position and seeks when released. The playback service permits seeking once a seekable track is loaded. For MP3 files without a seek table, Media3 can estimate a position when the stream length is known; the result may be approximate.
+- AMOLED mode uses a black mini-player background. Unknown track durations are shown as a dash.
 
 ### 🔄 Real-Time Multi-Device Sync
 - **Socket.IO Bidirectional Relay**: Instant synchronization between Web player, Android app, and connected devices.
-- **In-Memory RAM Caching**: Zero-latency playback state sync across active sessions.
+- **Playback State Sync**: Shares the active device and playback state across sessions.
 - **Universal Remote Control**: Control playback, scrub position, toggle shuffle/repeat, and transfer active playback between devices with one tap.
 
 ### 📶 Seamless Offline Playback & Downloads
@@ -63,7 +64,7 @@ Sangita follows Android Clean Architecture principles with unidirectional data f
 ```
 app/src/main/java/com/sangita/app/
 ├── data/
-│   ├── local/              # Room Database, DAOs, UserPreferences (DataStore)
+│   ├── local/              # Room database, DAOs, and SharedPreferences
 │   └── remote/             # Retrofit API, NetworkClient, DownloadManager
 ├── domain/
 │   ├── model/              # Immutable domain entities (Track, Playlist, User, Lyrics)
@@ -86,40 +87,44 @@ app/src/main/java/com/sangita/app/
 - **Networking**: Retrofit `2.11.0`, OkHttp `4.12.0`, Kotlinx Serialization `1.7.3`
 - **Real-Time Protocol**: Socket.IO Client `2.1.1`
 - **Image Pipeline**: Coil Compose `2.7.0`
-- **Async & Reactive**: Kotlin Coroutines & StateFlow `2.0.21`
+- **Async & Reactive**: Kotlin Coroutines and StateFlow
 
 ---
 
 ## 💻 Building from Source
 
 ### Prerequisites
-- **JDK 17** (Eclipse Adoptium or Oracle OpenJDK 17+)
-- **Android Studio** Ladybug (2024.2.1+) or Koala
-- **Android SDK** API 35 (Android 15) with platform-tools installed
+- JDK 17.
+- Android SDK Platform 35 and Android SDK Build-Tools, with the SDK license accepted.
+- Android SDK Platform-Tools for installation over USB.
+- Android Studio is optional: the SDK command-line tools and Gradle wrapper are sufficient.
 
-### Build Steps
+### Build and test
 ```bash
-# 1. Clone repository
-git clone https://github.com/bluedragon320/sangita-android-app.git
+git clone https://github.com/BlueDragon320/sangita-android-app.git
 cd sangita-android-app
 
-# 2. Check Kotlin compilation
-./gradlew compileDebugKotlin
+# Point ANDROID_HOME to your Android SDK directory, for example:
+export ANDROID_HOME="$HOME/Android/Sdk"
 
-# 3. Run unit tests
-./gradlew testDebugUnitTest
-
-# 4. Assemble Debug APK
-./gradlew assembleDebug
-
-# The built APK will be generated at:
-# app/build/outputs/apk/debug/app-debug.apk
+# The Gradle wrapper downloads its configured Gradle version if needed.
+bash gradlew testDebugUnitTest assembleDebug
 ```
 
-### Install to Connected Device via ADB
+The debug APK is created at `app/build/outputs/apk/debug/app-debug.apk`. For a non-debug build, run `bash gradlew assembleRelease`. The project does not configure release signing, so configure a signing key before distributing or installing a signed release.
+
+### Install or update on a connected phone
+
+Enable USB debugging on the phone, connect it by USB, and approve the debugging prompt. Then run:
+
 ```bash
+adb devices
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Android only installs an APK as an update when its application ID and signing certificate match the existing app and its version code is compatible. If the signing keys differ, the existing app cannot be updated with that APK. Uninstalling it removes its app data, including its settings and downloaded music. Keep your signing key safe and out of Git; losing it prevents in-place updates signed with that key.
+
+For meaningful scrolling performance checks, use a non-debug build and compare the same screen and device settings. Debug builds can add UI overhead. If the display is set to 60 Hz, Android may keep Sangita at 60 Hz even on a higher-refresh-rate screen.
 
 ---
 
@@ -127,8 +132,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 - **Target SDK**: Android 15 (API 35)
 - **Minimum SDK**: Android 8.0 Oreo (API 26)
-- **Refresh Rates**: Optimized for 60Hz, 90Hz, 120Hz, and 144Hz AMOLED / OLED displays.
-- **Tested Hardware**: Verified on POCO F7 (Snapdragon 8s Gen 4 / HyperOS), Xiaomi, Pixel, Samsung Galaxy devices.
+- **Refresh Rates**: Requests the highest supported rate at the current resolution; the actual rate depends on the device and its settings.
+- **Device testing**: Recent scrolling and seeking changes were checked on a connected Xiaomi Android phone. Results can vary by device, library size, and network conditions.
 
 ---
 

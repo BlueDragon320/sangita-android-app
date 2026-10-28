@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -67,10 +66,7 @@ fun MiniPlayer(
     val context = LocalContext.current
     val colors = SangitaThemeColors.current
 
-    val localCover = remember(track.id) {
-        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
-    }
-    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "$serverUrl/api/cover/${track.id}?token=${token ?: ""}"
+    val coverModel = rememberCoverModel(track.id, track.localFilePath, serverUrl, token, track.isDownloaded)
 
     val imageRequest = remember(coverModel) {
         ImageRequest.Builder(context)
@@ -88,7 +84,7 @@ fun MiniPlayer(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
-            .background(colors.elevated)
+            .background(colors.background)
             .border(1.dp, colors.border, RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
             .clickable(onClick = onClick)
     ) {

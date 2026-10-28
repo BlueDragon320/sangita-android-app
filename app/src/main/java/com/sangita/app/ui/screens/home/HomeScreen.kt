@@ -46,6 +46,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -120,7 +121,7 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
     val dataUsageToday by viewModel.dataUsageToday.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
+    val playbackState = viewModel.playbackState.collectAsState()
     val tracksMap by viewModel.tracksMap.collectAsState()
     val devices by viewModel.devices.collectAsState()
     val activeDownloads by viewModel.activeDownloads.collectAsState()
@@ -129,8 +130,8 @@ fun HomeScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val colors = SangitaThemeColors.current
 
-    val currentPlayingTrackId = remember(playbackState.currentTrack?.id) {
-        playbackState.currentTrack?.id
+    val currentPlayingTrackId by remember(playbackState) {
+        derivedStateOf { playbackState.value.currentTrack?.id }
     }
 
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -235,9 +236,10 @@ fun HomeScreen(
                 }
             },
             bottomBar = {
-                if (playbackState.currentTrack != null) {
+                val miniPlaybackState by viewModel.playbackState.collectAsState()
+                if (miniPlaybackState.currentTrack != null) {
                     MiniPlayer(
-                        playbackState = playbackState,
+                        playbackState = miniPlaybackState,
                         serverUrl = viewModel.serverUrl,
                         token = viewModel.token,
                         onTogglePlayPause = viewModel.playbackController::togglePlayPause,

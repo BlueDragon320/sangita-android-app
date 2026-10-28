@@ -45,6 +45,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import com.sangita.app.data.local.storage.LocalStorageManager
+import com.sangita.app.ui.components.rememberCoverModel
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -102,10 +103,7 @@ fun PlayerScreen(
     val track = state.currentTrack ?: return
 
     val context = LocalContext.current
-    val localCover = remember(track.id) {
-        LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
-    }
-    val coverModel: Any = if (localCover != null && localCover.exists()) localCover else "${viewModel.serverUrl}/api/cover/${track.id}?token=${viewModel.token ?: ""}"
+    val coverModel = rememberCoverModel(track.id, track.localFilePath, viewModel.serverUrl, viewModel.token, track.isDownloaded)
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -120,10 +118,21 @@ fun PlayerScreen(
         }
     }
 
-    val posSec = state.currentPositionMs / 1000.0
-    val durSec = (state.durationMs / 1000.0).coerceAtLeast(1.0)
-    val sliderValue = (state.currentPositionMs.toFloat() / state.durationMs.toFloat().coerceAtLeast(1f))
+    // Keep the thumb under the finger while playback progress continues to update.
+    // Seek once when the gesture ends instead of issuing a stream seek for every pixel.
+    var scrubFraction by remember(track.id) { mutableStateOf<Float?>(null) }
+    val durationMs = state.durationMs.coerceAtLeast(0L)
+    val playbackFraction = (state.currentPositionMs.toFloat() / durationMs.toFloat().coerceAtLeast(1f))
         .coerceIn(0f, 1f)
+    val sliderValue = scrubFraction ?: playbackFraction
+    val posSec = (scrubFraction?.let { it * durationMs } ?: state.currentPositionMs.toFloat()) / 1000.0
+    val durSec = (durationMs / 1000.0).coerceAtLeast(1.0)
+    val finishScrubbing = {
+        scrubFraction?.let { fraction ->
+            if (durationMs > 0) viewModel.seekTo((fraction * durationMs).toLong())
+        }
+        scrubFraction = null
+    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -281,10 +290,9 @@ fun PlayerScreen(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Slider(
                         value = sliderValue,
-                        onValueChange = { frac ->
-                            val targetMs = (frac * state.durationMs).toLong()
-                            viewModel.seekTo(targetMs)
-                        },
+                        onValueChange = { scrubFraction = it },
+                        onValueChangeFinished = finishScrubbing,
+                        enabled = durationMs > 0,
                         colors = SliderDefaults.colors(
                             thumbColor = DeepNavyBlue,
                             activeTrackColor = DeepNavyBlue,
@@ -509,10 +517,9 @@ fun PlayerScreen(
             // Scrubber Slider
             Slider(
                 value = sliderValue,
-                onValueChange = { frac ->
-                    val targetMs = (frac * state.durationMs).toLong()
-                    viewModel.seekTo(targetMs)
-                },
+                onValueChange = { scrubFraction = it },
+                onValueChangeFinished = finishScrubbing,
+                enabled = durationMs > 0,
                 colors = SliderDefaults.colors(
                     thumbColor = DeepNavyBlue,
                     activeTrackColor = DeepNavyBlue,
