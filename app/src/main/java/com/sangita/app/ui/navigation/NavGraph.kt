@@ -108,6 +108,7 @@ fun SangitaNavGraph(
                     userPreferences = container.userPreferences,
                     networkClient = container.networkClient,
                     musicRepository = container.musicRepository,
+                    syncRepository = container.syncRepository,
                     playbackController = container.playbackController,
                     downloadManager = container.downloadManager,
                     deviceSyncManager = container.deviceSyncManager,
@@ -143,6 +144,7 @@ fun SangitaNavGraph(
             val libraryVm = remember(backStackEntry) {
                 LibraryViewModel(
                     musicRepository = container.musicRepository,
+                    syncRepository = container.syncRepository,
                     networkClient = container.networkClient,
                     userPreferences = container.userPreferences,
                     playbackController = container.playbackController,

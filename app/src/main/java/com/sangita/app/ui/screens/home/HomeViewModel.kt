@@ -7,6 +7,8 @@ import com.sangita.app.data.remote.api.NetworkClient
 import com.sangita.app.data.remote.dto.UserStatsResponse
 import com.sangita.app.domain.model.Track
 import com.sangita.app.domain.repository.MusicRepository
+import com.sangita.app.domain.repository.SyncRepository
+import kotlinx.coroutines.CancellationException
 import com.sangita.app.download.SangitaDownloadManager
 import com.sangita.app.player.PlaybackController
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,7 @@ data class HomeUiState(
     val stats: UserStatsResponse? = null,
     val isLoading: Boolean = false,
     val isSyncing: Boolean = false,
+    val syncError: String? = null,
     val showSettingsSheet: Boolean = false,
     val showDevicesSheet: Boolean = false,
     val showDownloadSheet: Boolean = false,
@@ -36,6 +39,7 @@ class HomeViewModel(
     val userPreferences: UserPreferences,
     private val networkClient: NetworkClient,
     private val musicRepository: MusicRepository,
+    private val syncRepository: SyncRepository,
     val playbackController: PlaybackController,
     val downloadManager: SangitaDownloadManager,
     val deviceSyncManager: com.sangita.app.sync.DeviceSyncManager? = null,
@@ -49,6 +53,8 @@ class HomeViewModel(
             currentTheme = userPreferences.getTheme()
         )
     )
+    val pendingChanges = syncRepository.getSyncQueueSize().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     val isOnline: StateFlow<Boolean> = connectivityObserver.observe()
@@ -117,10 +123,18 @@ class HomeViewModel(
 
     fun syncLibraryNow() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isSyncing = true) }
-            musicRepository.refreshPlaylists()
-            loadHomeData(force = true)
-            _uiState.update { it.copy(isSyncing = false) }
+            _uiState.update { it.copy(isSyncing = true, syncError = null) }
+            try {
+                syncRepository.syncPendingActions().getOrThrow()
+                musicRepository.refreshPlaylists().getOrThrow()
+                loadHomeData(force = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(syncError = "Could not sync. Check your connection and try again.") }
+            } finally {
+                _uiState.update { it.copy(isSyncing = false) }
+            }
         }
     }
 

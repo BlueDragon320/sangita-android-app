@@ -83,6 +83,8 @@ fun SettingsBottomSheet(
     username: String,
     currentTheme: String,
     isSyncing: Boolean,
+    pendingChanges: Int,
+    syncError: String?,
     onDismiss: () -> Unit,
     onSaveDomain: (String, (Boolean, String) -> Unit) -> Unit,
     onThemeSelect: (String) -> Unit,
@@ -451,6 +453,15 @@ fun SettingsBottomSheet(
                                 Text("Sync Now", color = Emerald500, fontSize = 12.sp)
                             }
                         }
+                    }
+                    if (pendingChanges > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("$pendingChanges change${if (pendingChanges == 1) "" else "s"} waiting to sync",
+                            style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+                    }
+                    if (syncError != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(syncError, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
                     }
                 }
             }

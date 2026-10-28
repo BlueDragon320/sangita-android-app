@@ -671,8 +671,7 @@ private fun TrackThumbnail(
         else "http://$serverUrl"
     }
     val coverUrl = remember(cleanUrl, trackId, token) {
-        val base = "$cleanUrl/api/cover?track_id=${java.net.URLEncoder.encode(trackId, "UTF-8")}"
-        if (!token.isNullOrBlank()) "$base&token=${java.net.URLEncoder.encode(token, "UTF-8")}" else base
+        "$cleanUrl/api/cover/${android.net.Uri.encode(trackId, "/")}"
     }
 
     Box(

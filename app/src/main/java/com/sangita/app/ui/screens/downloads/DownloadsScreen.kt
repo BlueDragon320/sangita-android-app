@@ -65,6 +65,7 @@ fun DownloadsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val downloadedTracks by viewModel.downloadedTracks.collectAsState()
+    val failedDownloads by viewModel.failedDownloads.collectAsState()
     val playbackState = viewModel.playbackState.collectAsState()
     val colors = SangitaThemeColors.current
 
@@ -109,6 +110,20 @@ fun DownloadsScreen(
                 .padding(innerPadding),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
+            if (failedDownloads.isNotEmpty()) {
+                item(key = "failed-header") {
+                    Text("Downloads to retry", modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                }
+                items(failedDownloads, key = { "failed-${it.id}" }) { track ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text(track.title, modifier = Modifier.weight(1f), maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, color = colors.textPrimary)
+                        androidx.compose.material3.TextButton(onClick = { viewModel.retryDownload(track) }) { Text("Retry") }
+                    }
+                }
+            }
             // Storage card
             item {
                 val usage = uiState.storageUsage

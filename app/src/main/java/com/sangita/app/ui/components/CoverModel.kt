@@ -41,7 +41,7 @@ fun rememberCoverModel(trackId: String?, localAudioPath: String?, serverUrl: Str
                     }
                 }
             }
-            local ?: if (serverUrl.isNotEmpty()) "$serverUrl/api/cover/$trackId?token=${token ?: ""}" else null
+            local ?: if (serverUrl.isNotEmpty()) "$serverUrl/api/cover/${android.net.Uri.encode(trackId, "/")}" else null
         }
     }
     return model

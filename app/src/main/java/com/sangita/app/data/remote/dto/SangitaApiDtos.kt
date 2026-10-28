@@ -17,6 +17,15 @@ data class ToggleFavoriteRequest(
 )
 
 @Serializable
+data class SetFavoriteRequest(
+    @SerialName("track_path") val trackPath: String,
+    @SerialName("is_favorite") val isFavorite: Boolean
+)
+
+@Serializable
+data class TrackMetadataDto(val title: String? = null, val artist: String? = null, val album: String? = null)
+
+@Serializable
 data class ToggleFavoriteResponse(
     @SerialName("is_favorite") val isFavorite: Boolean,
     @SerialName("track_path") val trackPath: String,

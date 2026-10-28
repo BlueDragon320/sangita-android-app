@@ -5,6 +5,7 @@ import com.sangita.app.data.local.storage.LocalStorageManager
 import com.sangita.app.data.remote.api.NetworkClient
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Track
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -188,7 +189,7 @@ class SangitaDownloadManager(
                         if (coverResp.isSuccessful && coverResp.body() != null) {
                             localStorageManager.saveCoverBytes(track.id, coverResp.body()!!.bytes())
                         }
-                    } catch (_: Exception) {}
+                    } catch (e: CancellationException) { throw e } catch (_: Exception) {}
 
                     // 3. Download Lyrics Sidecar
                     try {
@@ -197,7 +198,7 @@ class SangitaDownloadManager(
                             val raw = lyricsResp.body()!!.raw
                             localStorageManager.saveLyricsText(track.id, raw)
                         }
-                    } catch (_: Exception) {}
+                    } catch (e: CancellationException) { throw e } catch (_: Exception) {}
 
                     // 4. Mark Complete in Room DB
                     trackDao.updateDownloadStatus(
@@ -214,6 +215,8 @@ class SangitaDownloadManager(
                     trackDao.updateDownloadProgress(track.id, 0, DownloadStatus.FAILED)
                 }
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 trackDao.updateDownloadProgress(track.id, 0, DownloadStatus.FAILED)
             } finally {
@@ -284,6 +287,10 @@ class SangitaDownloadManager(
         }
     }
 
+    suspend fun resumeInterruptedDownloads() {
+        trackDao.getInterruptedDownloads().forEach { downloadTrack(it.toDomain()) }
+    }
+
     fun downloadPlaylist(tracks: List<Track>) {
         tracks.forEach { track ->
             if (!track.isDownloaded) {
@@ -329,7 +336,7 @@ class SangitaDownloadManager(
                         val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
                         if (tempFile.exists()) tempFile.delete()
                         trackDao.updateDownloadProgress(task.trackId, 0, DownloadStatus.IDLE)
-                    } catch (_: Exception) {}
+                    } catch (e: CancellationException) { throw e } catch (_: Exception) {}
                 }
             }
         }
@@ -337,7 +344,9 @@ class SangitaDownloadManager(
 
     suspend fun removeDownloadedTrack(trackId: String): Boolean = withContext(Dispatchers.IO) {
         cancelDownload(trackId)
-        val deleted = localStorageManager.deleteTrackFiles(trackId)
+        val savedPath = trackDao.getTrackById(trackId)?.localFilePath
+        val removableLegacy = savedPath?.takeIf { trackDao.countOtherDownloadsAtPath(it, trackId) == 0 }
+        val deleted = localStorageManager.deleteTrackFiles(trackId, removableLegacy)
         trackDao.updateDownloadStatus(
             trackId = trackId,
             isDownloaded = false,

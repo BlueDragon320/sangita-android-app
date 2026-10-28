@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.ui.res.painterResource
 import com.sangita.app.R
+import com.sangita.app.data.local.preferences.UserPreferences
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -110,7 +111,9 @@ fun LoginScreen(
                 placeholder = { Text("e.g. music.mysite.com or yourdomain.com") },
                 supportingText = {
                     Text(
-                        text = "Enter once. The app will route all offline streaming, downloads & sync through your domain.",
+                        text = if (state.serverUrl.isNotBlank() && UserPreferences.normalizeUrl(state.serverUrl).startsWith("http://", ignoreCase = true))
+                            "HTTP is unencrypted. Use HTTPS when accessing your server over the internet."
+                        else "Enter your Sangita server address.",
                         color = TextMuted,
                         fontSize = 11.sp
                     )

@@ -13,6 +13,7 @@ data class SyncAction(
 
 enum class SyncActionType {
     TOGGLE_FAVORITE,
+    SET_FAVORITE,
     CREATE_PLAYLIST,
     ADD_TRACK_TO_PLAYLIST,
     REMOVE_TRACK_FROM_PLAYLIST,

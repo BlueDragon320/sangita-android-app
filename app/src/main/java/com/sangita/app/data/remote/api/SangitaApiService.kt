@@ -9,6 +9,8 @@ import com.sangita.app.data.remote.dto.MeResponse
 import com.sangita.app.data.remote.dto.PlaylistTrackActionRequest
 import com.sangita.app.data.remote.dto.RecordDataUsageRequest
 import com.sangita.app.data.remote.dto.StatsPingRequest
+import com.sangita.app.data.remote.dto.SetFavoriteRequest
+import com.sangita.app.data.remote.dto.TrackMetadataDto
 import com.sangita.app.data.remote.dto.ToggleFavoriteRequest
 import com.sangita.app.data.remote.dto.ToggleFavoriteResponse
 import com.sangita.app.data.remote.dto.UserPlaylistsResponse
@@ -34,7 +36,10 @@ interface SangitaApiService {
     suspend fun getPlaylists(): Response<Map<String, List<String>>>
 
     @GET("/api/durations")
-    suspend fun getDurations(): Response<Map<String, Double>>
+    suspend fun getDurations(): Response<Map<String, Double?>>
+
+    @GET("/api/track-metadata")
+    suspend fun getTrackMetadata(): Response<Map<String, TrackMetadataDto>>
 
     @Streaming
     @GET("/api/stream/{filepath}")
@@ -51,6 +56,9 @@ interface SangitaApiService {
 
     @POST("/api/favorites/toggle")
     suspend fun toggleFavorite(@Body request: ToggleFavoriteRequest): Response<ToggleFavoriteResponse>
+
+    @POST("/api/favorites/set")
+    suspend fun setFavorite(@Body request: SetFavoriteRequest): Response<ToggleFavoriteResponse>
 
     @GET("/api/user-playlists")
     suspend fun getUserPlaylists(): Response<UserPlaylistsResponse>

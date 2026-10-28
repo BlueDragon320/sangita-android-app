@@ -119,6 +119,7 @@ fun HomeScreen(
     onLogout: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val pendingChanges by viewModel.pendingChanges.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
     val dataUsageToday by viewModel.dataUsageToday.collectAsState()
     val playbackState = viewModel.playbackState.collectAsState()
@@ -554,6 +555,8 @@ fun HomeScreen(
                 username = uiState.username,
                 currentTheme = uiState.currentTheme,
                 isSyncing = uiState.isSyncing,
+                pendingChanges = pendingChanges,
+                syncError = uiState.syncError,
                 onDismiss = viewModel::closeSettingsSheet,
                 onSaveDomain = { newDomain, callback ->
                     viewModel.updateDomain(newDomain, callback)

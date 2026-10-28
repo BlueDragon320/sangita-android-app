@@ -41,10 +41,11 @@
 - **Socket.IO Bidirectional Relay**: Instant synchronization between Web player, Android app, and connected devices.
 - **Playback State Sync**: Shares the active device and playback state across sessions.
 - **Universal Remote Control**: Control playback, scrub position, toggle shuffle/repeat, and transfer active playback between devices with one tap.
+- **Library and Favorites**: Songs can belong to multiple playlists. Playlist edits and explicit favorite states are queued when offline and retried after connectivity returns. Deploy the matching updated Sangita server first; favorite syncing requires its `/api/favorites/set` endpoint.
 
 ### 📶 Seamless Offline Playback & Downloads
-- **Background Download Manager**: Download individual songs or entire playlists via Android DownloadManager with live progress notifications.
-- **ExoPlayer Offline Cache**: Automatic local cache playback fallbacks ensure smooth music even with zero internet connectivity.
+- **Download Queue**: Download individual songs or playlists; interrupted downloads are restarted when the app reconnects, and failed downloads can be retried from Offline Downloads. New downloads use unique path-derived names, while existing downloads remain available.
+- **Offline playback**: Downloaded tracks remain available without a connection; ExoPlayer also maintains a streaming cache.
 
 ### 🎤 Synchronized Moving Lyrics
 - **Real-Time Auto-Scroll**: Time-synced `.lrc` lyrics auto-center on the active vocal line.
@@ -94,6 +95,7 @@ app/src/main/java/com/sangita/app/
 ## 💻 Building from Source
 
 ### Prerequisites
+- A running Sangita server with the matching latest API. Older servers do not support retry-safe favorite syncing.
 - JDK 17.
 - Android SDK Platform 35 and Android SDK Build-Tools, with the SDK license accepted.
 - Android SDK Platform-Tools for installation over USB.

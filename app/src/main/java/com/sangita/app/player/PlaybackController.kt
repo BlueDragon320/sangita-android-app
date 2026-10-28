@@ -200,14 +200,13 @@ class PlaybackController(
             Pair(playlist, withoutExt.trim())
         }
         val serverUrl = userPreferences.getServerUrl()
-        val token = userPreferences.getToken() ?: ""
         return Track(
             id = clean,
             title = title,
             artist = artist,
             playlist = playlist,
             durationSeconds = if (durationMs > 0) durationMs / 1000.0 else null,
-            remoteUrl = "$serverUrl/api/stream/$clean?token=$token"
+            remoteUrl = "$serverUrl/api/stream/${Uri.encode(clean, "/")}"
         )
     }
 
@@ -433,8 +432,8 @@ class PlaybackController(
         _currentQueue.value = queue
         val trackDurationMs = ((track.durationSeconds ?: 0.0) * 1000).toLong()
 
-        val localAudio = localStorageManager.getAudioFile(track.id)
-        val hasLocalAudio = localAudio.exists() && localAudio.length() > 0
+        val localAudio = localStorageManager.getExistingAudioFile(track.id, track.localFilePath)
+        val hasLocalAudio = localAudio != null
 
         val isSyncConnected = deviceSyncManager.isConnected.value
         val sState = deviceSyncManager.remotePlaybackState.value
@@ -496,11 +495,10 @@ class PlaybackController(
 
         // Determine if local downloaded file is available
         val uri = if (hasLocalAudio) {
-            Uri.fromFile(localAudio)
+            Uri.fromFile(requireNotNull(localAudio))
         } else {
             val serverUrl = userPreferences.getServerUrl()
-            val token = userPreferences.getToken() ?: ""
-            Uri.parse("$serverUrl/api/stream/${track.id}?token=$token")
+            Uri.parse("$serverUrl/api/stream/${Uri.encode(track.id, "/")}")
         }
 
         val localCover = localStorageManager.getOrExtractCoverFile(track.id, track.localFilePath)

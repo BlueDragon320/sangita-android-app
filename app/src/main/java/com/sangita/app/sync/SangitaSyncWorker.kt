@@ -11,6 +11,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.sangita.app.SangitaApplication
+import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
 
 class SangitaSyncWorker(
@@ -25,12 +26,14 @@ class SangitaSyncWorker(
 
         return try {
             // 1. Flush pending outbox actions
-            syncRepo.syncPendingActions()
+            syncRepo.syncPendingActions().getOrThrow()
 
             // 2. Fetch remote library updates
-            musicRepo.refreshPlaylists()
+            musicRepo.refreshPlaylists().getOrThrow()
 
             Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             Result.retry()
         }
@@ -51,7 +54,7 @@ class SangitaSyncWorker(
 
             WorkManager.getInstance(context).enqueueUniqueWork(
                 SYNC_WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
+                ExistingWorkPolicy.KEEP,
                 request
             )
         }

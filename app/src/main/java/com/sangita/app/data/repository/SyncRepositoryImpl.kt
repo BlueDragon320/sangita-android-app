@@ -9,11 +9,14 @@ import com.sangita.app.data.remote.dto.PlaylistTrackActionRequest
 import com.sangita.app.data.remote.dto.RecordDataUsageRequest
 import com.sangita.app.data.remote.dto.StatsPingRequest
 import com.sangita.app.data.remote.dto.ToggleFavoriteRequest
+import com.sangita.app.data.remote.dto.SetFavoriteRequest
 import com.sangita.app.domain.model.SyncActionType
 import com.sangita.app.domain.repository.SyncRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -40,7 +43,7 @@ class SyncRepositoryImpl(
         return syncQueueDao.observeQueueSize()
     }
 
-    override suspend fun syncPendingActions(): Result<Int> = withContext(Dispatchers.IO) {
+    override suspend fun syncPendingActions(): Result<Int> = SyncSerialization.mutex.withLock { withContext(Dispatchers.IO) {
         try {
             val pending = syncQueueDao.getPendingActions()
             if (pending.isEmpty()) return@withContext Result.success(0)
@@ -54,6 +57,10 @@ class SyncRepositoryImpl(
                         SyncActionType.TOGGLE_FAVORITE -> {
                             val req = json.decodeFromString<ToggleFavoriteRequest>(action.payloadJson)
                             api.toggleFavorite(req).isSuccessful
+                        }
+                        SyncActionType.SET_FAVORITE -> {
+                            val req = json.decodeFromString<SetFavoriteRequest>(action.payloadJson)
+                            api.setFavorite(req).isSuccessful
                         }
                         SyncActionType.CREATE_PLAYLIST -> {
                             val req = json.decodeFromString<CreateUserPlaylistRequest>(action.payloadJson)
@@ -86,9 +93,13 @@ class SyncRepositoryImpl(
                         successCount++
                     } else {
                         syncQueueDao.incrementRetry(action.id, "HTTP Unsuccessful")
+                        break
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     syncQueueDao.incrementRetry(action.id, e.localizedMessage)
+                    break
                 }
             }
 
@@ -112,15 +123,18 @@ class SyncRepositoryImpl(
                     if (pingResp.isSuccessful) {
                         syncedIds.add(ev.id)
                     }
-                } catch (_: Exception) {}
+                } catch (e: CancellationException) { throw e } catch (_: Exception) {}
             }
             if (syncedIds.isNotEmpty()) {
                 playbackEventDao.markSynced(syncedIds)
             }
 
-            Result.success(successCount)
+            if (syncQueueDao.getQueueSize() > 0) Result.failure(IllegalStateException("Pending sync actions remain"))
+            else Result.success(successCount)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.failure(e)
         }
-    }
+    } }
 }

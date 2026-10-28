@@ -7,6 +7,8 @@ import com.sangita.app.data.remote.api.NetworkClient
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.domain.model.Track
 import com.sangita.app.domain.repository.MusicRepository
+import com.sangita.app.domain.repository.SyncRepository
+import kotlinx.coroutines.CancellationException
 import com.sangita.app.download.SangitaDownloadManager
 import com.sangita.app.player.PlaybackController
 import com.sangita.app.sync.DeviceSyncManager
@@ -33,11 +35,13 @@ data class LibraryUiState(
     val connectedDomain: String = "",
     val currentTheme: String = UserPreferences.THEME_DARK,
     val isSyncing: Boolean = false,
+    val syncError: String? = null,
     val username: String = ""
 )
 
 class LibraryViewModel(
     private val musicRepository: MusicRepository,
+    private val syncRepository: SyncRepository,
     private val networkClient: NetworkClient,
     val userPreferences: UserPreferences,
     val playbackController: PlaybackController,
@@ -53,6 +57,8 @@ class LibraryViewModel(
             currentTheme = userPreferences.getTheme()
         )
     )
+    val pendingChanges = syncRepository.getSyncQueueSize().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
     val isOnline: StateFlow<Boolean> = connectivityObserver.observe()
@@ -133,6 +139,7 @@ class LibraryViewModel(
             sourceTracks.filter { track ->
                 track.title.contains(query, ignoreCase = true) ||
                 track.artist.contains(query, ignoreCase = true) ||
+                track.album.contains(query, ignoreCase = true) ||
                 track.playlist.contains(query, ignoreCase = true)
             }
         }
@@ -269,9 +276,14 @@ class LibraryViewModel(
 
     fun syncLibraryNow() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isSyncing = true) }
+            _uiState.update { it.copy(isSyncing = true, syncError = null) }
             try {
-                musicRepository.refreshPlaylists()
+                syncRepository.syncPendingActions().getOrThrow()
+                musicRepository.refreshPlaylists().getOrThrow()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(syncError = "Could not sync. Check your connection and try again.") }
             } finally {
                 _uiState.update { it.copy(isSyncing = false) }
             }

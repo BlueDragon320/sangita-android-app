@@ -42,6 +42,8 @@ class AppContainer(val context: Context) {
 
     val musicRepository: MusicRepository by lazy {
         MusicRepositoryImpl(
+            context = context,
+            database = database,
             trackDao = database.trackDao(),
             playlistDao = database.playlistDao(),
             favoriteDao = database.favoriteDao(),

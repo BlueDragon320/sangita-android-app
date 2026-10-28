@@ -42,6 +42,12 @@ class DownloadsViewModel(
         .map { entities -> entities.map { it.toDomain() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val failedDownloads: StateFlow<List<Track>> = trackDao.observeFailedDownloads()
+        .map { entities -> entities.map { it.toDomain() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun retryDownload(track: Track) = downloadManager.downloadTrack(track)
+
     init {
         refreshStorageUsage()
     }

@@ -31,32 +31,42 @@ class LocalStorageManager(private val context: Context) {
         return trackId.replace('/', '_').replace('\\', '_')
     }
 
+    // A digest of the complete path avoids collisions such as A/B_C.mp3 vs A_B/C.mp3.
     fun getAudioFile(trackId: String): File {
-        val sanitized = sanitizeFilename(trackId)
-        return File(audioDir, sanitized)
+        val ext = trackId.substringAfterLast('.', "").lowercase().takeIf { it.matches(Regex("[a-z0-9]{1,8}")) }
+        return File(audioDir, trackStorageKey(trackId) + (ext?.let { ".$it" } ?: ""))
     }
 
-    fun getCoverFile(trackId: String): File {
-        val sanitized = sanitizeFilename(trackId).substringBeforeLast('.') + ".jpg"
-        return File(coversDir, sanitized)
+    fun getExistingAudioFile(trackId: String, savedPath: String?): File? {
+        val current = getAudioFile(trackId)
+        if (current.isFile && current.length() > 0) return current
+        val saved = savedPath?.let(::File) ?: return null
+        // Only use files owned by Sangita's audio folder.
+        return try {
+            if (saved.canonicalFile.parentFile == audioDir.canonicalFile && saved.isFile && saved.length() > 0) saved else null
+        } catch (_: Exception) { null }
     }
 
-    fun getLyricsFile(trackId: String): File {
-        val sanitized = sanitizeFilename(trackId).substringBeforeLast('.') + ".lrc"
-        return File(lyricsDir, sanitized)
+    fun getCoverFile(trackId: String): File = File(coversDir, trackStorageKey(trackId) + ".jpg")
+
+    fun getLyricsFile(trackId: String): File = File(lyricsDir, trackStorageKey(trackId) + ".lrc")
+
+    fun getExistingLyricsFile(trackId: String): File {
+        val current = getLyricsFile(trackId)
+        if (current.exists()) return current
+        return File(lyricsDir, sanitizeFilename(trackId).substringBeforeLast('.') + ".lrc")
     }
 
     fun getOrExtractCoverFile(trackId: String, customAudioPath: String? = null): File? {
         val coverFile = getCoverFile(trackId)
         if (coverFile.exists() && coverFile.length() > 0) return coverFile
+        val legacyCover = File(coversDir, sanitizeFilename(trackId).substringBeforeLast('.') + ".jpg")
+        if (legacyCover.exists() && legacyCover.length() > 0) return legacyCover
 
         val candidateAudio = when {
             !customAudioPath.isNullOrBlank() && File(customAudioPath).exists() -> File(customAudioPath)
             getAudioFile(trackId).exists() -> getAudioFile(trackId)
-            else -> {
-                val sanitized = sanitizeFilename(trackId).substringBeforeLast('.')
-                audioDir.listFiles()?.firstOrNull { it.name.startsWith(sanitized) && it.length() > 0 }
-            }
+            else -> null
         }
 
         if (candidateAudio != null && candidateAudio.exists() && candidateAudio.length() > 0) {
@@ -110,14 +120,19 @@ class LocalStorageManager(private val context: Context) {
         file
     }
 
-    suspend fun deleteTrackFiles(trackId: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun deleteTrackFiles(trackId: String, legacyPath: String? = null): Boolean = withContext(Dispatchers.IO) {
         val audio = getAudioFile(trackId)
         val cover = getCoverFile(trackId)
         val lyrics = getLyricsFile(trackId)
         val aDeleted = if (audio.exists()) audio.delete() else true
+        val legacy = legacyPath?.let(::File)
+        val legacyDeleted = try {
+            if (legacy != null && legacy.canonicalFile != audio.canonicalFile &&
+                legacy.canonicalFile.parentFile == audioDir.canonicalFile && legacy.exists()) legacy.delete() else true
+        } catch (_: Exception) { false }
         if (cover.exists()) cover.delete()
         if (lyrics.exists()) lyrics.delete()
-        aDeleted
+        aDeleted && legacyDeleted
     }
 
     suspend fun getStorageUsage(): StorageUsageInfo = withContext(Dispatchers.IO) {

@@ -34,6 +34,8 @@ class SangitaApplication : Application(), ImageLoaderFactory {
             container.userPreferences.tokenFlow.collectLatest { token ->
                 if (!token.isNullOrBlank()) {
                     container.deviceSyncManager.connect()
+                    SangitaSyncWorker.enqueueOneTime(this@SangitaApplication)
+                    if (container.connectivityObserver.isOnline) container.downloadManager.resumeInterruptedDownloads()
                 } else {
                     container.deviceSyncManager.disconnect()
                 }
@@ -45,6 +47,7 @@ class SangitaApplication : Application(), ImageLoaderFactory {
             container.connectivityObserver.observe().collectLatest { isOnline ->
                 if (isOnline && !container.userPreferences.getToken().isNullOrBlank()) {
                     SangitaSyncWorker.enqueueOneTime(this@SangitaApplication)
+                    container.downloadManager.resumeInterruptedDownloads()
                     container.deviceSyncManager.connect()
                 }
             }

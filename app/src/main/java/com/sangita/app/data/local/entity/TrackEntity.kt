@@ -49,7 +49,10 @@ data class TrackEntity(
     val downloadedAt: Long? = null,
 
     @ColumnInfo(name = "last_played_at")
-    val lastPlayedAt: Long? = null
+    val lastPlayedAt: Long? = null,
+
+    @ColumnInfo(name = "album", defaultValue = "''")
+    val album: String = ""
 ) {
     fun toDomain(): Track = Track(
         id = id,
@@ -63,7 +66,8 @@ data class TrackEntity(
         downloadStatus = downloadStatus,
         downloadProgress = downloadProgress,
         fileSizeBytes = fileSizeBytes,
-        isFavorite = isFavorite
+        isFavorite = isFavorite,
+        album = album
     )
 
     companion object {
@@ -79,7 +83,8 @@ data class TrackEntity(
             downloadStatus = track.downloadStatus,
             downloadProgress = track.downloadProgress,
             fileSizeBytes = track.fileSizeBytes,
-            isFavorite = track.isFavorite
+            isFavorite = track.isFavorite,
+            album = track.album
         )
     }
 }

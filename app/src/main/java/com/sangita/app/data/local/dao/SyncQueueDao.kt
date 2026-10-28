@@ -9,10 +9,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SyncQueueDao {
-    @Query("SELECT * FROM sync_queue ORDER BY created_at ASC")
+    @Query("SELECT * FROM sync_queue ORDER BY created_at ASC, id ASC")
     fun observePendingActions(): Flow<List<SyncQueueEntity>>
 
-    @Query("SELECT * FROM sync_queue ORDER BY created_at ASC")
+    @Query("SELECT * FROM sync_queue ORDER BY created_at ASC, id ASC")
     suspend fun getPendingActions(): List<SyncQueueEntity>
 
     @Query("SELECT COUNT(*) FROM sync_queue")

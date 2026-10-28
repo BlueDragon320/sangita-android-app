@@ -107,7 +107,6 @@ class DeviceSyncManager(
 
             val opts = IO.Options().apply {
                 auth = mapOf("token" to token)
-                query = "token=$token"
                 transports = arrayOf("websocket", "polling")
                 reconnection = true
                 reconnectionAttempts = 50

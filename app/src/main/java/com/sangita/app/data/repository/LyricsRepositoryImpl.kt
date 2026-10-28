@@ -21,7 +21,7 @@ class LyricsRepositoryImpl(
 
     override fun getLyrics(trackId: String, forceRefresh: Boolean): Flow<LyricsData> = flow {
         // 1. Check local file on disk
-        val localFile = localStorageManager.getLyricsFile(trackId)
+        val localFile = localStorageManager.getExistingLyricsFile(trackId)
         if (localFile.exists() && !forceRefresh) {
             val text = withContext(Dispatchers.IO) { localFile.readText() }
             val parsed = LrcParser.parse(trackId, text)

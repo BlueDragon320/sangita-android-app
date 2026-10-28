@@ -97,6 +97,7 @@ fun LibraryScreen(
     onLogout: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val pendingChanges by viewModel.pendingChanges.collectAsState()
     val filteredTracks by viewModel.filteredTracks.collectAsState()
     val filteredPlaylists by viewModel.filteredPlaylists.collectAsState()
     val playbackState = viewModel.playbackState.collectAsState()
@@ -480,6 +481,8 @@ fun LibraryScreen(
                 username = uiState.username,
                 currentTheme = uiState.currentTheme,
                 isSyncing = uiState.isSyncing,
+                pendingChanges = pendingChanges,
+                syncError = uiState.syncError,
                 onDismiss = viewModel::closeSettingsSheet,
                 onSaveDomain = { newDomain, callback ->
                     viewModel.updateDomain(newDomain, callback)

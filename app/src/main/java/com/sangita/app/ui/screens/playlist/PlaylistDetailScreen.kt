@@ -122,7 +122,7 @@ fun PlaylistDetailScreen(
         withContext(Dispatchers.IO) {
             try {
                 val localCover = LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
-                val coverModel: Any = localCover ?: "${viewModel.serverUrl}/api/cover/${track.id}?token=${viewModel.token ?: ""}"
+                val coverModel: Any = localCover ?: "${viewModel.serverUrl}/api/cover/${android.net.Uri.encode(track.id, "/")}"
                 val imageLoader = coil.Coil.imageLoader(context)
                 val req = ImageRequest.Builder(context)
                     .data(coverModel)

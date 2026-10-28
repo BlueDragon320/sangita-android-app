@@ -29,8 +29,17 @@ interface PlaylistDao {
     @Query("DELETE FROM playlists WHERE name = :name")
     suspend fun deletePlaylistByName(name: String)
 
+    @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_track_cross_ref WHERE playlist_name = :playlistName")
+    suspend fun nextTrackPosition(playlistName: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCrossRef(ref: PlaylistTrackCrossRef)
+
+    @Query("DELETE FROM playlist_track_cross_ref WHERE playlist_name = :playlistName")
+    suspend fun clearTracksForPlaylist(playlistName: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCrossRefs(refs: List<PlaylistTrackCrossRef>)
 
     @Query("DELETE FROM playlist_track_cross_ref WHERE playlist_name = :playlistName AND track_id = :trackId")
     suspend fun deleteCrossRef(playlistName: String, trackId: String)

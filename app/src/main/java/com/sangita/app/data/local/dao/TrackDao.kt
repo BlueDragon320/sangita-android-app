@@ -29,7 +29,7 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE is_downloaded = 1 ORDER BY downloaded_at DESC, title ASC")
     fun observeDownloadedTracks(): Flow<List<TrackEntity>>
 
-    @Query("SELECT * FROM tracks WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' ORDER BY title ASC")
+    @Query("SELECT * FROM tracks WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%' ORDER BY title ASC")
     fun searchTracks(query: String): Flow<List<TrackEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -40,6 +40,9 @@ interface TrackDao {
 
     @Update
     suspend fun updateTrack(track: TrackEntity)
+
+    @Query("UPDATE tracks SET is_favorite = 0")
+    suspend fun clearFavoriteStatuses()
 
     @Query("UPDATE tracks SET is_favorite = :isFavorite WHERE id = :trackId")
     suspend fun updateFavoriteStatus(trackId: String, isFavorite: Boolean)
@@ -66,6 +69,15 @@ interface TrackDao {
 
     @Query("UPDATE tracks SET download_progress = :progress, download_status = :status WHERE id = :trackId")
     suspend fun updateDownloadProgress(trackId: String, progress: Int, status: DownloadStatus)
+
+    @Query("SELECT COUNT(*) FROM tracks WHERE local_file_path = :path AND id != :trackId AND is_downloaded = 1")
+    suspend fun countOtherDownloadsAtPath(path: String, trackId: String): Int
+
+    @Query("SELECT * FROM tracks WHERE download_status = 'FAILED' AND is_downloaded = 0 ORDER BY title ASC")
+    fun observeFailedDownloads(): Flow<List<TrackEntity>>
+
+    @Query("SELECT * FROM tracks WHERE download_status IN ('QUEUED', 'DOWNLOADING') AND is_downloaded = 0")
+    suspend fun getInterruptedDownloads(): List<TrackEntity>
 
     @Query("DELETE FROM tracks WHERE id = :trackId")
     suspend fun deleteTrackById(trackId: String)

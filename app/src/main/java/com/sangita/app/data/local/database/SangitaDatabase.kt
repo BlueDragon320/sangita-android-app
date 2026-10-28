@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.TypeConverters
 import com.sangita.app.data.local.dao.FavoriteDao
 import com.sangita.app.data.local.dao.LyricsDao
@@ -29,7 +31,7 @@ import com.sangita.app.data.local.entity.TrackEntity
         PlaybackEventEntity::class,
         LyricsCacheEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(SangitaTypeConverters::class)
@@ -42,6 +44,17 @@ abstract class SangitaDatabase : RoomDatabase() {
     abstract fun lyricsDao(): LyricsDao
 
     companion object {
+        // Preserve existing offline libraries when introducing playlist membership links.
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tracks ADD COLUMN album TEXT NOT NULL DEFAULT ''")
+                db.execSQL("""INSERT OR IGNORE INTO playlist_track_cross_ref
+                    (playlist_name, track_id, position, added_at)
+                    SELECT playlist_name, id, 0, 0 FROM tracks
+                    WHERE playlist_name != 'Favorites'""")
+            }
+        }
+
         @Volatile
         private var INSTANCE: SangitaDatabase? = null
 
@@ -52,7 +65,7 @@ abstract class SangitaDatabase : RoomDatabase() {
                     SangitaDatabase::class.java,
                     "sangita.db"
                 )
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_1_2)
                     .build()
                 INSTANCE = instance
                 instance
