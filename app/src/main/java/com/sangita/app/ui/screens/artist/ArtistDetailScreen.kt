@@ -73,7 +73,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -88,17 +91,26 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.sangita.app.data.remote.dto.ArtistDetailDto
 import com.sangita.app.data.remote.dto.ArtistTrackDto
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.SongActionsSheet
 import com.sangita.app.ui.components.rememberCoverModel
 import com.sangita.app.ui.components.PlayingBars
+import com.sangita.app.ui.screens.playlist.formatDurationNatural
 import com.sangita.app.ui.theme.SangitaColors
 import com.sangita.app.ui.theme.SangitaThemeColors
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.absoluteValue
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private val artistDominantColorCache = ConcurrentHashMap<String, Color>()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,6 +151,131 @@ fun ArtistDetailScreen(
 
     val artist = uiState.artist
     val tracks = artist?.tracks ?: emptyList()
+    val totalDurationSeconds = remember(tracks) { tracks.sumOf { it.duration ?: 0.0 } }
+    val isLight = colors.background.luminance() > 0.5f
+    val isAmoled = colors.isAmoled
+    val context = LocalContext.current
+
+    val firstTrackPath = remember(tracks) { tracks.firstOrNull()?.path }
+    val localCover = rememberCoverModel(firstTrackPath, null, viewModel.serverUrl, viewModel.token)
+
+    val resolvedImageUrl = remember(artist?.imageUrl, viewModel.serverUrl, viewModel.token, firstTrackPath) {
+        val raw = when {
+            !artist?.imageUrl.isNullOrBlank() -> artist?.imageUrl
+            !firstTrackPath.isNullOrBlank() -> "/api/cover/${android.net.Uri.encode(firstTrackPath, "/")}"
+            else -> null
+        }
+        if (raw.isNullOrBlank()) null
+        else {
+            val fullUrl = if (raw.startsWith("http://") || raw.startsWith("https://")) {
+                raw
+            } else {
+                "${viewModel.serverUrl.trimEnd('/')}/${raw.trimStart('/')}"
+            }
+            if (fullUrl.contains("/api/cover/") && !fullUrl.contains("token=")) {
+                val separator = if (fullUrl.contains("?")) "&" else "?"
+                val tokenPart = if (!viewModel.token.isNullOrBlank()) {
+                    "token=${android.net.Uri.encode(viewModel.token)}&v=2"
+                } else "v=2"
+                "$fullUrl$separator$tokenPart"
+            } else {
+                fullUrl
+            }
+        }
+    }
+
+    val finalCoverModel: Any? = when {
+        localCover is java.io.File && localCover.exists() -> localCover
+        !resolvedImageUrl.isNullOrBlank() -> resolvedImageUrl
+        else -> localCover
+    }
+
+    var dominantColor by remember(artist?.id ?: artistId) {
+        val key = artist?.id ?: artistId
+        val cached = artistDominantColorCache[key]
+        if (cached != null) {
+            mutableStateOf(cached)
+        } else {
+            val hue = (key.hashCode().absoluteValue % 360).toFloat()
+            mutableStateOf(Color.hsl(hue, 0.45f, 0.20f))
+        }
+    }
+
+    LaunchedEffect(finalCoverModel) {
+        val model = finalCoverModel ?: return@LaunchedEffect
+        val key = artist?.id ?: artistId
+        if (artistDominantColorCache.containsKey(key)) {
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(240)
+        withContext(Dispatchers.IO) {
+            try {
+                val imageLoader = coil.Coil.imageLoader(context)
+                val req = ImageRequest.Builder(context)
+                    .data(model)
+                    .allowHardware(false)
+                    .size(256, 256)
+                    .build()
+                val result = imageLoader.execute(req)
+                if (result is coil.request.SuccessResult) {
+                    val bitmap = (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                    if (bitmap != null) {
+                        val palette = Palette.from(bitmap).generate()
+                        val colorInt = palette.getVibrantColor(
+                            palette.getDominantColor(
+                                palette.getDarkVibrantColor(
+                                    palette.getMutedColor(0)
+                                )
+                            )
+                        )
+                        if (colorInt != 0) {
+                            withContext(Dispatchers.Main) {
+                                val resolved = Color(colorInt)
+                                dominantColor = resolved
+                                artistDominantColorCache[key] = resolved
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    val gradientColors = if (isAmoled) {
+        listOf(
+            colors.background,
+            colors.background
+        )
+    } else if (isLight) {
+        listOf(
+            dominantColor.copy(alpha = 0.25f),
+            dominantColor.copy(alpha = 0.10f),
+            dominantColor.copy(alpha = 0.03f),
+            colors.background,
+            colors.background
+        )
+    } else {
+        listOf(
+            dominantColor.copy(alpha = 0.55f),
+            dominantColor.copy(alpha = 0.25f),
+            dominantColor.copy(alpha = 0.08f),
+            colors.background,
+            colors.background
+        )
+    }
+
+    val isSaved = savedArtists.any { it.id == (artist?.id ?: artistId) }
+    val onToggleSave: () -> Unit = {
+        viewModel.toggleSavedArtist(isSaved) { ok ->
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    if (ok) {
+                        if (isSaved) "Artist removed from library" else "Artist saved to library"
+                    } else "Could not update library"
+                )
+            }
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -148,7 +285,7 @@ fun ArtistDetailScreen(
             TopAppBar(
                 modifier = Modifier
                     .statusBarsPadding()
-                    .padding(top = 4.dp),
+                    .padding(top = 8.dp),
                 title = { },
                 navigationIcon = {
                     IconButton(
@@ -163,6 +300,31 @@ fun ArtistDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = onToggleSave,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .semantics {
+                                stateDescription = if (isSaved) "Saved to library" else "Not in library"
+                                role = Role.Checkbox
+                            }
+                    ) {
+                        Icon(
+                            imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                            contentDescription = if (isSaved) "Remove from Library" else "Save to Library",
+                            tint = if (isSaved) colors.accent else colors.textPrimary
+                        )
+                    }
+                    IconButton(
+                        onClick = { showAddAllDialog = true },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                            contentDescription = "Add to Playlist",
+                            tint = colors.textPrimary
+                        )
+                    }
                     IconButton(
                         onClick = viewModel::refresh,
                         modifier = Modifier.size(48.dp)
@@ -197,6 +359,13 @@ fun ArtistDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .then(
+                    if (isAmoled) {
+                        Modifier.background(colors.background)
+                    } else {
+                        Modifier.background(Brush.verticalGradient(gradientColors))
+                    }
+                )
                 .padding(innerPadding)
         ) {
             when {
@@ -222,31 +391,18 @@ fun ArtistDetailScreen(
                     ) {
                         // Header: Artwork, Name, Bio, Track Count, Actions
                         item(key = "artist_header") {
-                            val isSaved = savedArtists.any { it.id == artist.id }
                             ArtistHeaderSection(
-                                artistName = artist.name,
-                                bio = artist.bio,
-                                imageUrl = artist.imageUrl,
-                                serverUrl = viewModel.serverUrl,
-                                trackCount = if (artist.trackCount > 0) artist.trackCount else tracks.size,
+                                artist = artist,
+                                coverModel = finalCoverModel,
+                                totalDurationSeconds = totalDurationSeconds,
                                 isBioExpanded = isBioExpanded,
                                 isSaved = isSaved,
                                 onToggleBio = { isBioExpanded = !isBioExpanded },
-                                onToggleSave = {
-                                    viewModel.toggleSavedArtist(isSaved) { ok ->
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar(
-                                                if (ok) {
-                                                    if (isSaved) "Artist removed from library" else "Artist saved to library"
-                                                } else "Could not update library"
-                                            )
-                                        }
-                                    }
-                                },
+                                onToggleSave = onToggleSave,
                                 onPlayAll = viewModel::playAll,
                                 onShuffle = viewModel::shuffle,
-                                onAddAllToPlaylist = { showAddAllDialog = true },
-                                colors = colors
+                                colors = colors,
+                                token = viewModel.token
                             )
                         }
 
@@ -422,33 +578,32 @@ fun ArtistDetailScreen(
 
 @Composable
 private fun ArtistHeaderSection(
-    artistName: String,
-    bio: String,
-    imageUrl: String?,
-    serverUrl: String,
-    trackCount: Int,
+    artist: ArtistDetailDto,
+    coverModel: Any?,
+    totalDurationSeconds: Double,
     isBioExpanded: Boolean,
     isSaved: Boolean,
     onToggleBio: () -> Unit,
     onToggleSave: () -> Unit,
     onPlayAll: () -> Unit,
     onShuffle: () -> Unit,
-    onAddAllToPlaylist: () -> Unit = {},
-    colors: SangitaColors
+    colors: SangitaColors,
+    token: String?
 ) {
     val context = LocalContext.current
-    val fullImageUrl = remember(imageUrl, serverUrl) {
-        if (imageUrl.isNullOrBlank()) null
-        else if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) imageUrl
-        else "${serverUrl.trimEnd('/')}/${imageUrl.trimStart('/')}"
-    }
+    var isImageError by remember(coverModel) { mutableStateOf(false) }
 
-    val imageRequest = remember(fullImageUrl) {
-        fullImageUrl?.let {
+    val imageRequest = remember(coverModel, token) {
+        coverModel?.let { model ->
             ImageRequest.Builder(context)
-                .data(it)
+                .data(model)
                 .crossfade(true)
-                .size(360, 360)
+                .apply {
+                    if (!token.isNullOrBlank() && model is String && (model.startsWith("http://") || model.startsWith("https://"))) {
+                        addHeader("Authorization", "Bearer $token")
+                    }
+                }
+                .size(400, 400)
                 .build()
         }
     }
@@ -456,23 +611,27 @@ private fun ArtistHeaderSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(modifier = Modifier.height(6.dp))
+
         // Artist Circular Artwork
         Box(
             modifier = Modifier
-                .size(150.dp)
+                .size(190.dp)
+                .shadow(if (colors.isAmoled) 0.dp else 16.dp, CircleShape)
                 .clip(CircleShape)
-                .background(colors.elevated)
-                .border(2.dp, colors.border, CircleShape),
+                .background(colors.card)
+                .border(2.dp, colors.border.copy(alpha = 0.7f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            if (imageRequest != null) {
+            if (imageRequest != null && !isImageError) {
                 AsyncImage(
                     model = imageRequest,
-                    contentDescription = artistName,
+                    contentDescription = artist.name,
                     contentScale = ContentScale.Crop,
+                    onError = { isImageError = true },
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
@@ -485,47 +644,72 @@ private fun ArtistHeaderSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Badge/Tag: "Artist" label row (like "Public Playlist" in PlaylistDetailScreen.kt)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = colors.textMuted,
+                modifier = Modifier.size(13.dp)
+            )
+            Text(
+                text = "Artist",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.textMuted,
+                letterSpacing = 0.5.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
 
         // Artist Name
         Text(
-            text = artistName,
+            text = artist.name,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = colors.textPrimary,
             textAlign = TextAlign.Center,
-            fontSize = 24.sp,
             modifier = Modifier.semantics { heading() }
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Track Count Label
+        // Track Count & Duration Stats Row
+        val trackCount = if (artist.trackCount > 0) artist.trackCount else artist.tracks.size
+        val trackCountText = if (trackCount == 1) "1 track" else "$trackCount tracks"
+        val statsText = if (totalDurationSeconds > 0) {
+            "$trackCountText • ${formatDurationNatural(totalDurationSeconds)}"
+        } else {
+            trackCountText
+        }
         Text(
-            text = "$trackCount tracks",
+            text = statsText,
             style = MaterialTheme.typography.bodySmall,
-            color = colors.textSecondary,
-            fontSize = 13.sp
+            color = colors.textMuted
         )
 
-        // Bio (if available)
-        if (bio.isNotBlank()) {
-            Spacer(modifier = Modifier.height(10.dp))
+        // Bio (if present)
+        if (artist.bio.isNotBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = bio,
+                text = artist.bio,
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textSecondary,
                 textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onToggleBio),
                 maxLines = if (isBioExpanded) Int.MAX_VALUE else 3,
                 overflow = TextOverflow.Ellipsis,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = onToggleBio)
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                lineHeight = 18.sp
             )
-            if (bio.length > 120) {
+            if (artist.bio.length > 120) {
                 Text(
                     text = if (isBioExpanded) "Show less" else "Read more",
                     style = MaterialTheme.typography.labelSmall,
@@ -540,13 +724,13 @@ private fun ArtistHeaderSection(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Action Buttons: Play All & Shuffle
+        // Action Buttons Row (matching PlaylistDetailScreen.kt lines 474-555)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // "Play All" (Filled button)
+            // "Play" Button
             Button(
                 onClick = onPlayAll,
                 shape = RoundedCornerShape(24.dp),
@@ -554,25 +738,26 @@ private fun ArtistHeaderSection(
                     containerColor = colors.accent,
                     contentColor = colors.buttonContent
                 ),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 0.dp),
+                modifier = Modifier.height(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
+                    contentDescription = "Play",
+                    modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Play All",
+                    text = "Play",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
             }
 
-            // "Shuffle" (Tonal / Outlined button)
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // "Shuffle" Button
             OutlinedButton(
                 onClick = onShuffle,
                 shape = RoundedCornerShape(24.dp),
@@ -580,90 +765,58 @@ private fun ArtistHeaderSection(
                     contentColor = colors.textPrimary
                 ),
                 border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 0.dp),
+                modifier = Modifier.height(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Shuffle,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    contentDescription = "Shuffle",
+                    modifier = Modifier.size(17.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "Shuffle",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp
+                    color = colors.textPrimary
                 )
             }
-        }
 
-        Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
-        // "Save Artist to Library" styled chip/button with bookmark icon (48dp height)
-        OutlinedButton(
-            onClick = onToggleSave,
-            shape = RoundedCornerShape(24.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = if (isSaved) colors.accent.copy(alpha = 0.15f) else colors.card,
-                contentColor = if (isSaved) colors.accent else colors.textPrimary
-            ),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                if (isSaved) colors.accent else colors.border
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .semantics {
-                    stateDescription = if (isSaved) "Artist in Library" else "Not in Library"
-                    role = Role.Checkbox
-                }
-        ) {
-            Icon(
-                imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = if (isSaved) colors.accent else colors.textPrimary
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (isSaved) "Artist in Library" else "Save Artist to Library",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // "Add Complete Collection" button (48dp height)
-        OutlinedButton(
-            onClick = onAddAllToPlaylist,
-            shape = RoundedCornerShape(24.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = colors.accent
-            ),
-            border = androidx.compose.foundation.BorderStroke(1.dp, colors.accent.copy(alpha = 0.7f)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = colors.accent
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Add Complete Collection to Playlist",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                color = colors.accent
-            )
+            // "Save" / "Saved" Bookmark Button
+            OutlinedButton(
+                onClick = onToggleSave,
+                shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = if (isSaved) colors.accent.copy(alpha = 0.15f) else colors.card,
+                    contentColor = if (isSaved) colors.accent else colors.textPrimary
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (isSaved) colors.accent else colors.border
+                ),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                modifier = Modifier
+                    .height(48.dp)
+                    .semantics {
+                        stateDescription = if (isSaved) "Saved to library" else "Not in library"
+                        role = Role.Checkbox
+                    }
+            ) {
+                Icon(
+                    imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                    contentDescription = null,
+                    modifier = Modifier.size(17.dp),
+                    tint = if (isSaved) colors.accent else colors.textPrimary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isSaved) "Saved" else "Save",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
