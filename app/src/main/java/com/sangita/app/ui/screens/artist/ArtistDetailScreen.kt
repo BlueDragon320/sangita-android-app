@@ -115,6 +115,9 @@ fun ArtistDetailScreen(
     val savedTracks by viewModel.savedTracks.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
     val downloadedTracks by viewModel.downloadedTracks.collectAsState()
+    val downloadedIds = remember(downloadedTracks) { downloadedTracks.map { it.id }.toHashSet() }
+    val favoriteIds = remember(favorites) { favorites.map { it.id }.toHashSet() }
+    val savedIds = remember(savedTracks) { savedTracks.map { it.id }.toHashSet() }
     val colors = SangitaThemeColors.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -276,9 +279,9 @@ fun ArtistDetailScreen(
                                 items = tracks,
                                 key = { _, track -> track.path }
                             ) { index, track ->
-                                val isDownloaded = downloadedTracks.any { it.id == track.path }
-                                val isFavorite = favorites.any { it.id == track.path }
-                                val isSaved = savedTracks.any { it.id == track.path }
+                                val isDownloaded = downloadedIds.contains(track.path)
+                                val isFavorite = favoriteIds.contains(track.path)
+                                val isSaved = savedIds.contains(track.path)
                                 ArtistTrackItemRow(
                                     track = track,
                                     serverUrl = viewModel.serverUrl,

@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
@@ -442,6 +443,18 @@ class PlaybackController(
                     broadcastPlaybackState()
                 }
             }
+
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e("PlaybackController", "Player error encountered: ${error.message}", error)
+                stopProgressPolling()
+                _playbackState.update {
+                    it.copy(
+                        isPlaying = false,
+                        isBuffering = false
+                    )
+                }
+                broadcastPlaybackState(overridePlaying = false, overrideBuffering = false)
+            }
         })
     }
 
@@ -463,10 +476,9 @@ class PlaybackController(
         val myId = deviceSyncManager.myDeviceId
         val isRemoteActive = isSyncConnected && currentActiveId != null && currentActiveId != myId
 
-        // If another device (like web browser) is currently active, and forceLocal is not requested,
-        // and we are NOT offline and track is NOT downloaded locally:
-        // Route play_track command to the active remote speaker!
-        if (isRemoteActive && !forceLocal && !hasLocalAudio) {
+        // If another device (like web browser) is currently active, and forceLocal is not requested:
+        // Route play_track command to the active remote speaker regardless of whether local audio exists!
+        if (isRemoteActive && !forceLocal) {
             Log.d("PlaybackController", "Remote device $currentActiveId is active. Routing play_track for ${track.id}")
             mediaController?.pause()
 
@@ -503,10 +515,11 @@ class PlaybackController(
         }
 
         // Apply repeat mode to player
+        // Map RepeatMode.ALL to Player.REPEAT_MODE_OFF so that STATE_ENDED triggers and PlaybackController advances queue
         val exoRepeatMode = when (_playbackState.value.repeatMode) {
             RepeatMode.OFF -> Player.REPEAT_MODE_OFF
             RepeatMode.ONE -> Player.REPEAT_MODE_ONE
-            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+            RepeatMode.ALL -> Player.REPEAT_MODE_OFF
         }
         player.repeatMode = exoRepeatMode
 
@@ -746,7 +759,7 @@ class PlaybackController(
         val exoRepeatMode = when (mode) {
             RepeatMode.OFF -> Player.REPEAT_MODE_OFF
             RepeatMode.ONE -> Player.REPEAT_MODE_ONE
-            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+            RepeatMode.ALL -> Player.REPEAT_MODE_OFF
         }
         mediaController?.repeatMode = exoRepeatMode
 
@@ -829,7 +842,14 @@ class PlaybackController(
                                 val player = mediaController
                                 val pos = player?.currentPosition ?: _playbackState.value.currentPositionMs
                                 val dur = if ((player?.duration ?: 0L) > 0) player?.duration ?: 0L else _playbackState.value.durationMs
-                                deviceSyncManager.reportPosition(pos, dur)
+                                val currentTrack = _playbackState.value.currentTrack
+                                deviceSyncManager.reportPosition(
+                                    positionMs = pos,
+                                    durationMs = dur,
+                                    trackId = currentTrack?.id,
+                                    isPlaying = _playbackState.value.isPlaying,
+                                    isBuffering = _playbackState.value.isBuffering
+                                )
                             }
                             lastReportTime = now
                         }

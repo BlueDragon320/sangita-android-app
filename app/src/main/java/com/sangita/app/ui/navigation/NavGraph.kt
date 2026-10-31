@@ -37,7 +37,6 @@ import com.sangita.app.ui.screens.player.PlayerScreen
 import com.sangita.app.ui.screens.player.PlayerViewModel
 import com.sangita.app.ui.screens.playlist.PlaylistDetailScreen
 import com.sangita.app.ui.screens.playlist.PlaylistViewModel
-import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -337,12 +336,11 @@ fun SangitaNavGraph(
             popEnterTransition = pagePopEnterTransition,
             popExitTransition = pagePopExitTransition
         ) { backStackEntry ->
-            val rawKey = backStackEntry.arguments?.getString("playlistKey") ?: "Library"
-            val decodedKey = URLDecoder.decode(rawKey, StandardCharsets.UTF_8.toString())
+            val playlistKey = backStackEntry.arguments?.getString("playlistKey") ?: "Library"
 
             val playlistVm = viewModel<PlaylistViewModel>(viewModelStoreOwner = backStackEntry) {
                 PlaylistViewModel(
-                    playlistKey = decodedKey,
+                    playlistKey = playlistKey,
                     musicRepository = container.musicRepository,
                     userPreferences = container.userPreferences,
                     playbackController = container.playbackController,
@@ -370,12 +368,11 @@ fun SangitaNavGraph(
             popEnterTransition = pagePopEnterTransition,
             popExitTransition = pagePopExitTransition
         ) { backStackEntry ->
-            val rawId = backStackEntry.arguments?.getString("artistId") ?: ""
-            val decodedId = URLDecoder.decode(rawId, StandardCharsets.UTF_8.toString())
+            val artistId = backStackEntry.arguments?.getString("artistId") ?: ""
 
             val artistVm = viewModel<ArtistDetailViewModel>(viewModelStoreOwner = backStackEntry) {
                 ArtistDetailViewModel(
-                    artistId = decodedId,
+                    artistId = artistId,
                     musicRepository = container.musicRepository,
                     playbackController = container.playbackController,
                     userPreferences = container.userPreferences,
@@ -384,7 +381,7 @@ fun SangitaNavGraph(
                 )
             }
             ArtistDetailScreen(
-                artistId = decodedId,
+                artistId = artistId,
                 viewModel = artistVm,
                 onBackClick = { navController.popBackStack() },
                 onOpenFullPlayer = {

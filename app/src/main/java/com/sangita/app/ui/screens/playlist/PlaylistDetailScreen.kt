@@ -102,12 +102,13 @@ import com.sangita.app.ui.dialogs.CreatePlaylistDialog
 import com.sangita.app.ui.dialogs.EditPlaylistDialog
 import com.sangita.app.ui.theme.SangitaEmerald
 import com.sangita.app.ui.theme.SangitaThemeColors
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.absoluteValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val playlistDominantColorCache = mutableMapOf<String, Color>()
+private val playlistDominantColorCache = ConcurrentHashMap<String, Color>()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

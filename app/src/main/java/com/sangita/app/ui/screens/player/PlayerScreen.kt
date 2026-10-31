@@ -53,6 +53,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -107,7 +108,25 @@ fun PlayerScreen(
     val state by viewModel.playbackState.collectAsState()
     val devices by viewModel.devices.collectAsState()
     var showDevicesSheet by remember { mutableStateOf(false) }
-    val track = state.currentTrack ?: return
+    val track = state.currentTrack
+    if (track == null) {
+        LaunchedEffect(Unit) {
+            onBackClick()
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SangitaThemeColors.current.background),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "No track playing",
+                color = SangitaThemeColors.current.textSecondary,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+        return
+    }
 
     val colors = SangitaThemeColors.current
     val receiverName = if (!state.isActiveDevice) {

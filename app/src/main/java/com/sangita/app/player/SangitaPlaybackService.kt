@@ -3,10 +3,8 @@ package com.sangita.app.player
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Build
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -28,14 +26,6 @@ class SangitaPlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
     private lateinit var exoPlayer: ExoPlayer
-
-    private val becomingNoisyReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                exoPlayer.pause()
-            }
-        }
-    }
 
     override fun onCreate() {
         super.onCreate()
@@ -163,11 +153,6 @@ class SangitaPlaybackService : MediaSessionService() {
             .setSessionActivity(pendingIntent)
             .setCallback(sessionCallback)
             .build()
-
-        registerReceiver(
-            becomingNoisyReceiver,
-            IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY)
-        )
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -175,9 +160,6 @@ class SangitaPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        try {
-            unregisterReceiver(becomingNoisyReceiver)
-        } catch (_: Exception) {}
         mediaSession?.run {
             player.release()
             release()

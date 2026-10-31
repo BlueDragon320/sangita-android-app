@@ -765,4 +765,56 @@ class SangitaSyncWorkerExecutionTest {
         assertNotNull(localPl)
         assertEquals("srv_my_cloned_playlist_202", localPl?.serverId)
     }
+
+    @Test
+    fun executeAction_addTrack_withNullServerId_returnsSkip() = runBlocking {
+        val fakeApi = FakeApiService()
+        val playlistDao = FakePlaylistDao()
+        playlistDao.insertOrReplace(
+            PlaylistEntity(
+                localKey = "local_pl_pending",
+                serverId = null,
+                title = "Road Trip",
+                syncState = "PENDING_CREATE"
+            )
+        )
+        val syncQueueDao = FakeSyncQueueDao()
+
+        val action = SyncQueueEntity(
+            id = 81L,
+            actionType = SyncActionType.ADD_TRACK,
+            payloadJson = SyncPayloadSerialization.encodeAddTrack(
+                AddTrackPayload(localKey = "local_pl_pending", serverId = null, trackPath = "Rock/Song.mp3")
+            )
+        )
+
+        val result = SangitaSyncWorker.executeAction(action, fakeApi, playlistDao, syncQueueDao)
+        assertTrue(result is ActionExecutionResult.Skip)
+    }
+
+    @Test
+    fun executeAction_removeTrack_withNullServerId_returnsSkip() = runBlocking {
+        val fakeApi = FakeApiService()
+        val playlistDao = FakePlaylistDao()
+        playlistDao.insertOrReplace(
+            PlaylistEntity(
+                localKey = "local_pl_pending_del",
+                serverId = null,
+                title = "Road Trip",
+                syncState = "PENDING_CREATE"
+            )
+        )
+        val syncQueueDao = FakeSyncQueueDao()
+
+        val action = SyncQueueEntity(
+            id = 82L,
+            actionType = SyncActionType.REMOVE_TRACK,
+            payloadJson = SyncPayloadSerialization.encodeRemoveTrack(
+                RemoveTrackPayload(localKey = "local_pl_pending_del", serverId = null, trackPath = "Rock/Song.mp3")
+            )
+        )
+
+        val result = SangitaSyncWorker.executeAction(action, fakeApi, playlistDao, syncQueueDao)
+        assertTrue(result is ActionExecutionResult.Skip)
+    }
 }

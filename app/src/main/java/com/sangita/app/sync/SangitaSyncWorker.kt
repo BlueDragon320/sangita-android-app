@@ -469,15 +469,14 @@ class SangitaSyncWorker(
                         }
 
                         val playlistEntity = if (playlistDao != null && effectiveLocalKey.isNotBlank()) playlistDao.getPlaylistByKey(effectiveLocalKey) else null
-                        var serverId = payload.serverId ?: playlistEntity?.serverId ?: playlistEntity?.title
-                        val playlistTitle = playlistEntity?.title ?: playlistTitleQuery.ifBlank { null } ?: serverId ?: effectiveLocalKey
+                        val serverId = payload.serverId ?: playlistEntity?.serverId
+                        val playlistTitle = playlistEntity?.title ?: playlistTitleQuery.ifBlank { null } ?: effectiveLocalKey
 
-                        if (serverId.isNullOrBlank() && playlistTitle.isBlank()) {
-                            // If still null, wait/retry
+                        if (serverId.isNullOrBlank()) {
+                            // If still null, wait/retry after playlist creation mutation completes on server
                             ActionExecutionResult.Skip
                         } else {
-                            val targetId = serverId ?: playlistTitle
-                            val response = apiService.addTrackToPlaylist(targetId, AddTrackRequest(payload.trackPath))
+                            val response = apiService.addTrackToPlaylist(serverId, AddTrackRequest(payload.trackPath))
                             if (response.isSuccessful) {
                                 ActionExecutionResult.Success
                             } else if (response.code() == 404) {
@@ -528,15 +527,14 @@ class SangitaSyncWorker(
                         }
 
                         val playlistEntity = if (playlistDao != null && effectiveLocalKey.isNotBlank()) playlistDao.getPlaylistByKey(effectiveLocalKey) else null
-                        var serverId = payload.serverId ?: playlistEntity?.serverId ?: playlistEntity?.title
-                        val playlistTitle = playlistEntity?.title ?: playlistTitleQuery.ifBlank { null } ?: serverId ?: effectiveLocalKey
+                        val serverId = payload.serverId ?: playlistEntity?.serverId
+                        val playlistTitle = playlistEntity?.title ?: playlistTitleQuery.ifBlank { null } ?: effectiveLocalKey
 
-                        if (serverId.isNullOrBlank() && playlistTitle.isBlank()) {
-                            // Playlist doesn't exist on server, local removal was already performed
-                            ActionExecutionResult.Success
+                        if (serverId.isNullOrBlank()) {
+                            // If still null, wait/retry after playlist creation mutation completes on server
+                            ActionExecutionResult.Skip
                         } else {
-                            val targetId = serverId ?: playlistTitle
-                            val response = apiService.removeTrackFromPlaylist(targetId, payload.trackPath)
+                            val response = apiService.removeTrackFromPlaylist(serverId, payload.trackPath)
                             if (response.isSuccessful) {
                                 ActionExecutionResult.Success
                             } else if (response.code() == 404) {
