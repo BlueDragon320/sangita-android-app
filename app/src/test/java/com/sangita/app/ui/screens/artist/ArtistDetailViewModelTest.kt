@@ -2,6 +2,7 @@ package com.sangita.app.ui.screens.artist
 
 import com.sangita.app.data.remote.dto.ArtistDetailDto
 import com.sangita.app.data.remote.dto.ArtistTrackDto
+import com.sangita.app.download.SangitaDownloadManager
 import com.sangita.app.domain.model.PlaybackState
 import com.sangita.app.domain.model.Track
 import com.sangita.app.domain.repository.MusicRepository
@@ -212,5 +213,66 @@ class ArtistDetailViewModelTest {
 
         assertEquals("artist_radiohead", viewModel.artistId)
         assertNotNull(viewModel.uiState.value.artist)
+    }
+
+    @Test
+    fun `deleteDownloadedTrack delegates to downloadManager with track path`() = runTest {
+        val downloadManager: SangitaDownloadManager = mockk(relaxed = true)
+        val viewModel = ArtistDetailViewModel(
+            artistId = "artist_radiohead",
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            downloadManager = downloadManager
+        )
+        advanceUntilIdle()
+
+        viewModel.deleteDownloadedTrack(testTracks[0])
+        advanceUntilIdle()
+
+        coVerify {
+            downloadManager.removeDownloadedTrack(testTracks[0].path)
+        }
+    }
+
+    @Test
+    fun `downloadTrack delegates to downloadManager`() = runTest {
+        val downloadManager: SangitaDownloadManager = mockk(relaxed = true)
+        val viewModel = ArtistDetailViewModel(
+            artistId = "artist_radiohead",
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            downloadManager = downloadManager
+        )
+        advanceUntilIdle()
+
+        viewModel.downloadTrack(testTracks[0])
+        advanceUntilIdle()
+
+        verify {
+            downloadManager.downloadTrack(match { it.id == testTracks[0].path })
+        }
+    }
+
+    @Test
+    fun `toggleFavorite delegates to musicRepository and invokes callback`() = runTest {
+        coEvery { musicRepository.toggleFavorite(any()) } returns Result.success(true)
+
+        val viewModel = ArtistDetailViewModel(
+            artistId = "artist_radiohead",
+            musicRepository = musicRepository,
+            playbackController = playbackController
+        )
+        advanceUntilIdle()
+
+        var callbackResult: Boolean? = null
+        viewModel.toggleFavorite(testTracks[0]) { result ->
+            callbackResult = result
+        }
+        advanceUntilIdle()
+
+        coVerify {
+            musicRepository.toggleFavorite(match { it.id == testTracks[0].path })
+        }
+        assertEquals(true, callbackResult)
     }
 }

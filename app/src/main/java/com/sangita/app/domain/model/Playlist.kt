@@ -22,7 +22,8 @@ data class Playlist(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val tracks: List<Track> = emptyList(),
-    val isSaved: Boolean = false
+    val isSaved: Boolean = false,
+    val isDownloaded: Boolean = false
 ) {
     val isFavorites: Boolean get() = kind == PlaylistKind.FAVORITES
     val isFolder: Boolean get() = kind == PlaylistKind.FOLDER
@@ -39,7 +40,8 @@ data class Playlist(
         trackCount: Int = 0,
         coverTrackPath: String? = null,
         tracks: List<Track> = emptyList(),
-        id: String = "local_" + UUID.randomUUID().toString()
+        id: String = "local_" + UUID.randomUUID().toString(),
+        isDownloaded: Boolean = false
     ) : this(
         id = id,
         serverId = null,
@@ -55,6 +57,8 @@ data class Playlist(
         syncState = PlaylistSyncState.SYNCED,
         createdAt = System.currentTimeMillis(),
         updatedAt = System.currentTimeMillis(),
-        tracks = tracks
+        tracks = tracks,
+        isSaved = false,
+        isDownloaded = isDownloaded
     )
 }

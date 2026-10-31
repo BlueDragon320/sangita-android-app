@@ -23,14 +23,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
@@ -70,6 +76,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -97,6 +109,10 @@ fun ArtistDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
+    val savedArtists by viewModel.savedArtists.collectAsState()
+    val savedTracks by viewModel.savedTracks.collectAsState()
+    val favorites by viewModel.favorites.collectAsState()
+    val downloadedTracks by viewModel.downloadedTracks.collectAsState()
     val colors = SangitaThemeColors.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -201,6 +217,7 @@ fun ArtistDetailScreen(
                     ) {
                         // Header: Artwork, Name, Bio, Track Count, Actions
                         item(key = "artist_header") {
+                            val isSaved = savedArtists.any { it.id == artist.id }
                             ArtistHeaderSection(
                                 artistName = artist.name,
                                 bio = artist.bio,
@@ -208,7 +225,19 @@ fun ArtistDetailScreen(
                                 serverUrl = viewModel.serverUrl,
                                 trackCount = if (artist.trackCount > 0) artist.trackCount else tracks.size,
                                 isBioExpanded = isBioExpanded,
+                                isSaved = isSaved,
                                 onToggleBio = { isBioExpanded = !isBioExpanded },
+                                onToggleSave = {
+                                    viewModel.toggleSavedArtist(isSaved) { ok ->
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                if (ok) {
+                                                    if (isSaved) "Artist removed from library" else "Artist saved to library"
+                                                } else "Could not update library"
+                                            )
+                                        }
+                                    }
+                                },
                                 onPlayAll = viewModel::playAll,
                                 onShuffle = viewModel::shuffle,
                                 onAddAllToPlaylist = { showAddAllDialog = true },
@@ -234,7 +263,8 @@ fun ArtistDetailScreen(
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = colors.textPrimary,
-                                        fontSize = 17.sp
+                                        fontSize = 17.sp,
+                                        modifier = Modifier.semantics { heading() }
                                     )
                                 }
                             }
@@ -244,13 +274,49 @@ fun ArtistDetailScreen(
                                 items = tracks,
                                 key = { _, track -> track.path }
                             ) { index, track ->
+                                val isDownloaded = downloadedTracks.any { it.id == track.path }
+                                val isFavorite = favorites.any { it.id == track.path }
+                                val isSaved = savedTracks.any { it.id == track.path }
                                 ArtistTrackItemRow(
                                     track = track,
                                     artistFallback = artist.name,
                                     index = index + 1,
                                     isPlayingThisTrack = currentPlayingTrackId == track.path,
+                                    isDownloaded = isDownloaded,
+                                    isFavorite = isFavorite,
+                                    isSaved = isSaved,
                                     onClick = { viewModel.playTrack(track) },
+                                    onDownloadClick = {
+                                        viewModel.downloadTrack(track)
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Download started for ${track.title}")
+                                        }
+                                    },
+                                    onRemoveDownloadClick = {
+                                        viewModel.deleteDownloadedTrack(track)
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Download removed for ${track.title}")
+                                        }
+                                    },
+                                    onToggleFavorite = {
+                                        viewModel.toggleFavorite(track) { ok ->
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(if (ok) "Favorites updated" else "Could not update favorites")
+                                            }
+                                        }
+                                    },
                                     onAddToPlaylistClick = { trackForAddToPlaylist = track },
+                                    onToggleSaved = {
+                                        viewModel.toggleSavedTrack(track.path, isSaved) { ok ->
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    if (ok) {
+                                                        if (isSaved) "Song removed from library" else "Song saved to library"
+                                                    } else "Could not update library"
+                                                )
+                                            }
+                                        }
+                                    },
                                     colors = colors,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 )
@@ -355,7 +421,9 @@ private fun ArtistHeaderSection(
     serverUrl: String,
     trackCount: Int,
     isBioExpanded: Boolean,
+    isSaved: Boolean,
     onToggleBio: () -> Unit,
+    onToggleSave: () -> Unit,
     onPlayAll: () -> Unit,
     onShuffle: () -> Unit,
     onAddAllToPlaylist: () -> Unit = {},
@@ -419,7 +487,8 @@ private fun ArtistHeaderSection(
             fontWeight = FontWeight.Bold,
             color = colors.textPrimary,
             textAlign = TextAlign.Center,
-            fontSize = 24.sp
+            fontSize = 24.sp,
+            modifier = Modifier.semantics { heading() }
         )
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -476,7 +545,7 @@ private fun ArtistHeaderSection(
                 shape = RoundedCornerShape(24.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colors.accent,
-                    contentColor = Color.White
+                    contentColor = colors.buttonContent
                 ),
                 modifier = Modifier
                     .weight(1f)
@@ -525,7 +594,44 @@ private fun ArtistHeaderSection(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // "Add Complete Collection" button
+        // "Save Artist to Library" styled chip/button with bookmark icon (48dp height)
+        OutlinedButton(
+            onClick = onToggleSave,
+            shape = RoundedCornerShape(24.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = if (isSaved) colors.accent.copy(alpha = 0.15f) else colors.card,
+                contentColor = if (isSaved) colors.accent else colors.textPrimary
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (isSaved) colors.accent else colors.border
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .semantics {
+                    stateDescription = if (isSaved) "Artist in Library" else "Not in Library"
+                    role = Role.Checkbox
+                }
+        ) {
+            Icon(
+                imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = if (isSaved) colors.accent else colors.textPrimary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isSaved) "Artist in Library" else "Save Artist to Library",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // "Add Complete Collection" button (48dp height)
         OutlinedButton(
             onClick = onAddAllToPlaylist,
             shape = RoundedCornerShape(24.dp),
@@ -535,10 +641,10 @@ private fun ArtistHeaderSection(
             border = androidx.compose.foundation.BorderStroke(1.dp, colors.accent.copy(alpha = 0.7f)),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp)
+                .height(48.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.PlaylistAdd,
+                imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = colors.accent
@@ -561,12 +667,20 @@ private fun ArtistTrackItemRow(
     artistFallback: String,
     index: Int,
     isPlayingThisTrack: Boolean,
+    isDownloaded: Boolean,
+    isFavorite: Boolean,
+    isSaved: Boolean,
     onClick: () -> Unit,
+    onDownloadClick: () -> Unit,
+    onRemoveDownloadClick: () -> Unit = {},
+    onToggleFavorite: () -> Unit,
+    onToggleSaved: () -> Unit,
     onAddToPlaylistClick: () -> Unit,
     colors: SangitaColors,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val trackTitle = track.title.ifBlank { track.path.substringAfterLast('/').substringBeforeLast('.') }
 
     Row(
         modifier = modifier
@@ -574,7 +688,16 @@ private fun ArtistTrackItemRow(
             .defaultMinSize(minHeight = 48.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(if (isPlayingThisTrack) colors.elevated.copy(alpha = 0.5f) else Color.Transparent)
-            .clickable(onClick = onClick)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Play $trackTitle",
+                onClick = onClick
+            )
+            .semantics {
+                if (isPlayingThisTrack) {
+                    stateDescription = "Currently playing"
+                }
+            }
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -621,7 +744,18 @@ private fun ArtistTrackItemRow(
             )
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+
+        if (isDownloaded) {
+            Icon(
+                imageVector = Icons.Default.Download,
+                contentDescription = "Downloaded offline",
+                tint = colors.accent,
+                modifier = Modifier
+                    .padding(end = 4.dp)
+                    .size(16.dp)
+            )
+        }
 
         // Duration
         val durationFormatted = formatTrackDuration(track.duration)
@@ -640,7 +774,7 @@ private fun ArtistTrackItemRow(
             ) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Track options",
+                    contentDescription = "More options for $trackTitle",
                     tint = colors.textMuted,
                     modifier = Modifier.size(20.dp)
                 )
@@ -654,7 +788,65 @@ private fun ArtistTrackItemRow(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.PlaylistAdd,
+                                imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = if (isFavorite) colors.accent else colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isFavorite) "Remove from favorites" else "Add to favorites")
+                        }
+                    },
+                    onClick = {
+                        showMenu = false
+                        onToggleFavorite()
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (isDownloaded) Icons.Default.Delete else Icons.Default.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = if (isDownloaded) colors.accent else colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isDownloaded) "Remove download" else "Download track")
+                        }
+                    },
+                    onClick = {
+                        showMenu = false
+                        if (isDownloaded) {
+                            onRemoveDownloadClick()
+                        } else {
+                            onDownloadClick()
+                        }
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = if (isSaved) colors.accent else colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (isSaved) "Remove from library" else "Save to library")
+                        }
+                    },
+                    onClick = {
+                        showMenu = false
+                        onToggleSaved()
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -761,7 +953,7 @@ private fun AddToPlaylistDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.QueueMusic,
+                                    imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                                     contentDescription = null,
                                     tint = colors.accent,
                                     modifier = Modifier.size(20.dp)
@@ -935,7 +1127,7 @@ private fun AddArtistCollectionDialog(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.QueueMusic,
+                                        imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                                         contentDescription = null,
                                         tint = colors.accent,
                                         modifier = Modifier.size(20.dp)

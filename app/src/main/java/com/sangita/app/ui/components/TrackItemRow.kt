@@ -1,35 +1,40 @@
 package com.sangita.app.ui.components
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,10 +43,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,46 +56,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.sangita.app.data.local.storage.LocalStorageManager
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.theme.SangitaThemeColors
-import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackItemRow(
     track: Track,
-    serverUrl: String,
-    token: String?,
+    serverUrl: String = "",
+    token: String? = null,
     index: Int? = null,
     isPlayingThisTrack: Boolean = false,
     playCount: Int? = null,
-    onClick: () -> Unit,
-    onDownloadClick: () -> Unit,
-    onMenuClick: () -> Unit = {},
+    onClick: () -> Unit = {},
+    onDownloadClick: (() -> Unit)? = null,
+    onDeleteDownload: (() -> Unit)? = null,
     onToggleFavorite: (() -> Unit)? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
+    onToggleSave: (() -> Unit)? = null,
+    isSaved: Boolean = false,
+    onMenuClick: (() -> Unit)? = null,
+    extraMenuItems: (@Composable ColumnScope.(() -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
     val colors = SangitaThemeColors.current
-
-    // 3-second hold to reveal download, followed by 3-second countdown
-    var isDownloadRevealed by remember { mutableStateOf(false) }
-    var countdownSeconds by remember { mutableIntStateOf(3) }
-
-    // 3-second countdown when revealed
-    LaunchedEffect(isDownloadRevealed) {
-        if (isDownloadRevealed) {
-            countdownSeconds = 3
-            while (countdownSeconds > 0) {
-                delay(1000L)
-                countdownSeconds -= 1
-            }
-            isDownloadRevealed = false
-        }
-    }
+    var showMenu by remember { mutableStateOf(false) }
 
     val coverModel = rememberCoverModel(track.id, track.localFilePath, serverUrl, token, track.isDownloaded)
     val imageRequest = remember(coverModel) {
@@ -102,17 +95,21 @@ fun TrackItemRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .sizeIn(minHeight = 48.dp)
             .alpha(if (track.isAvailable) 1f else 0.5f)
             .clip(RoundedCornerShape(8.dp))
             .background(if (isPlayingThisTrack) colors.elevated.copy(alpha = 0.5f) else Color.Transparent)
-            .combinedClickable(
+            .clickable(
                 enabled = track.isAvailable,
-                onClick = { onClick() },
-                onLongClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    isDownloadRevealed = true
-                }
+                role = Role.Button,
+                onClickLabel = "Play ${track.title}",
+                onClick = onClick
             )
+            .semantics {
+                if (isPlayingThisTrack) {
+                    stateDescription = "Currently playing"
+                }
+            }
             .padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -147,7 +144,7 @@ fun TrackItemRow(
         ) {
             AsyncImage(
                 model = imageRequest,
-                contentDescription = track.title,
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -176,13 +173,13 @@ fun TrackItemRow(
                 ) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(3.dp))
+                            .clip(RoundedCornerShape(4.dp))
                             .background(colors.border)
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = "Unavailable",
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = colors.textMuted
                         )
@@ -208,67 +205,210 @@ fun TrackItemRow(
             }
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
-        // Right side: Clean visible Timestamp OR Download Countdown Pill
-        if (isDownloadRevealed) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(colors.accent)
-                    .clickable {
-                        isDownloadRevealed = false
-                        onDownloadClick()
-                    }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = "Download",
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${countdownSeconds}s",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-            }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (track.isDownloaded) {
-                    Box(
-                        modifier = Modifier
-                            .padding(end = 6.dp)
-                            .size(5.dp)
-                            .clip(CircleShape)
-                            .background(colors.accent)
-                    )
-                } else if (track.downloadStatus == DownloadStatus.DOWNLOADING) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .padding(end = 6.dp)
-                            .size(10.dp),
-                        strokeWidth = 1.5.dp,
-                        color = colors.accent
-                    )
-                }
-
-                // Visible duration timestamp
-                val sec = track.durationSeconds ?: 0.0
-                val durationFormatted = if (sec > 0.0) formatSeconds(sec) else "—"
-                Text(
-                    text = durationFormatted,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (isPlayingThisTrack) colors.accent else colors.textMuted,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp
+        // Right side: Favorite + Download status + Duration timestamp + 48dp 3-dots Menu Button
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (track.isFavorite) {
+                Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = "Favorite",
+                    tint = colors.accent,
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .size(15.dp)
+                        .testTag("favorite_indicator")
                 )
+            }
+
+            if (track.isDownloaded) {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = "Downloaded offline",
+                    tint = colors.accent,
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .size(15.dp)
+                        .testTag("download_indicator")
+                )
+            } else if (track.downloadStatus == DownloadStatus.DOWNLOADING) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .size(12.dp),
+                    strokeWidth = 1.5.dp,
+                    color = colors.accent
+                )
+            }
+
+            // Visible duration timestamp
+            val sec = track.durationSeconds ?: 0.0
+            val durationFormatted = if (sec > 0.0) formatSeconds(sec) else "—"
+            Text(
+                text = durationFormatted,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isPlayingThisTrack) colors.accent else colors.textMuted,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp
+            )
+
+            Box {
+                IconButton(
+                    onClick = {
+                        if (onMenuClick != null && onAddToPlaylist == null && onDeleteDownload == null) {
+                            onMenuClick()
+                        } else {
+                            showMenu = true
+                            onMenuClick?.invoke()
+                        }
+                    },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More options for ${track.title}",
+                        tint = colors.textMuted,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                if (onMenuClick == null || onAddToPlaylist != null || onDeleteDownload != null) {
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(colors.card)
+                    ) {
+                        // a) Favorite toggle
+                        val favText = if (track.isFavorite) "Remove from favorites" else "Add to favorites"
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = favText,
+                                    color = colors.textPrimary,
+                                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = favText,
+                                    tint = if (track.isFavorite) colors.accent else colors.textPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onToggleFavorite?.invoke()
+                            },
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .semantics(mergeDescendants = true) {}
+                                .testTag("menu_item_favorite")
+                        )
+
+                        // b) Download / Remove download
+                        val downloadText = when {
+                            track.downloadStatus == DownloadStatus.DOWNLOADING -> "Downloading..."
+                            track.isDownloaded -> if (onDeleteDownload != null) "Remove download" else "Downloaded"
+                            else -> "Download song"
+                        }
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = downloadText,
+                                    color = colors.textPrimary,
+                                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (track.isDownloaded) {
+                                        if (onDeleteDownload != null) Icons.Default.Delete else Icons.Default.DownloadDone
+                                    } else {
+                                        Icons.Default.Download
+                                    },
+                                    contentDescription = downloadText,
+                                    tint = if (track.isDownloaded) colors.accent else colors.textPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                if (track.isDownloaded) {
+                                    onDeleteDownload?.invoke()
+                                } else {
+                                    onDownloadClick?.invoke()
+                                }
+                            },
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .semantics(mergeDescendants = true) {}
+                                .testTag("menu_item_download")
+                        )
+
+                        // c) Save to library / Remove from library (if onToggleSave != null)
+                        if (onToggleSave != null) {
+                            val saveText = if (isSaved) "Remove from library" else "Save to library"
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = saveText,
+                                        color = colors.textPrimary,
+                                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                        contentDescription = saveText,
+                                        tint = if (isSaved) colors.accent else colors.textPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onToggleSave()
+                                },
+                                modifier = Modifier
+                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                    .semantics(mergeDescendants = true) {}
+                                    .testTag("menu_item_save")
+                            )
+                        }
+
+                        // d) Add to playlist (if onAddToPlaylist != null)
+                        if (onAddToPlaylist != null) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "Add to playlist",
+                                        color = colors.textPrimary,
+                                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                                        contentDescription = "Add to playlist",
+                                        tint = colors.textPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onAddToPlaylist()
+                                },
+                                modifier = Modifier
+                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                    .semantics(mergeDescendants = true) {}
+                                    .testTag("menu_item_add_to_playlist")
+                            )
+                        }
+
+                        // e) Extra menu items
+                        extraMenuItems?.invoke(this) { showMenu = false }
+                    }
+                }
             }
         }
     }

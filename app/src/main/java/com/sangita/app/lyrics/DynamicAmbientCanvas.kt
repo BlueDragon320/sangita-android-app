@@ -1,5 +1,6 @@
 package com.sangita.app.lyrics
 
+import android.provider.Settings
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -10,10 +11,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -166,17 +169,41 @@ enum class LyricsThemePalette(
 }
 
 @Composable
+fun isReducedMotionRequested(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        try {
+            val resolver = context.contentResolver
+            val durationScale = Settings.Global.getFloat(
+                resolver,
+                Settings.Global.ANIMATOR_DURATION_SCALE,
+                1.0f
+            )
+            val transitionScale = Settings.Global.getFloat(
+                resolver,
+                Settings.Global.TRANSITION_ANIMATION_SCALE,
+                1.0f
+            )
+            durationScale == 0f || transitionScale == 0f
+        } catch (_: Throwable) {
+            false
+        }
+    }
+}
+
+@Composable
 fun DynamicAmbientCanvas(
     modifier: Modifier = Modifier,
-    theme: String = "black"
+    theme: String = "black",
+    reducedMotion: Boolean = isReducedMotionRequested()
 ) {
-    val palette = androidx.compose.runtime.remember(theme) { LyricsThemePalette.fromId(theme) }
+    val palette = remember(theme) { LyricsThemePalette.fromId(theme) }
 
     if (palette == LyricsThemePalette.BLACK || palette == LyricsThemePalette.WHITE) {
         Canvas(modifier = modifier.fillMaxSize()) {
             drawRect(color = palette.bgColor)
         }
-    } else if (palette.isStatic) {
+    } else if (palette.isStatic || reducedMotion) {
         Canvas(modifier = modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.verticalGradient(

@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,6 +27,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,6 +40,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
@@ -69,7 +74,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import com.sangita.app.ui.dialogs.RecoverLegacyPlaylistsDialog
-import com.sangita.app.ui.theme.SangitaEmerald
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,16 +81,26 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.sangita.app.data.remote.dto.ArtistDto
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.domain.model.PlaylistSyncState
 import com.sangita.app.domain.model.Track
+import com.sangita.app.ui.dialogs.AddToPlaylistSheet
 import com.sangita.app.ui.dialogs.CreatePlaylistDialog
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.DownloadQueueBottomSheet
@@ -96,16 +110,17 @@ import com.sangita.app.ui.components.NavTab
 import com.sangita.app.ui.components.SangitaBottomNavBar
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
+import com.sangita.app.ui.theme.SangitaColors
 import com.sangita.app.ui.theme.SangitaThemeColors
 
-private val LikedMusicPurple = Color(0xFF8B5CF6)
-private val LikedMusicMagenta = Color(0xFFD946EF)
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel,
     onPlaylistClick: (String) -> Unit,
+    onArtistClick: (String) -> Unit = {},
     onNavigateToHome: () -> Unit = {},
     onNavigateToDiscover: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
@@ -117,24 +132,32 @@ fun LibraryScreen(
     val pendingChanges by viewModel.pendingChanges.collectAsState()
     val filteredTracks by viewModel.filteredTracks.collectAsState()
     val filteredPlaylists by viewModel.filteredPlaylists.collectAsState()
+    val libraryPlaylists by viewModel.libraryPlaylists.collectAsState()
+    val libraryArtists by viewModel.libraryArtists.collectAsState()
+    val librarySongs by viewModel.librarySongs.collectAsState()
+    val downloadedTracks by viewModel.downloadedTracks.collectAsState()
     val playbackState = viewModel.playbackState.collectAsState()
     val devices by viewModel.devices.collectAsState()
     val activeDownloads by viewModel.activeDownloads.collectAsState()
     val activeDownloadsCount by viewModel.activeDownloadsCount.collectAsState()
     val totalDownloadSpeed by viewModel.totalDownloadSpeed.collectAsState()
     val recoverablePlaylists by viewModel.recoverableLegacyPlaylists.collectAsState()
+    val playlists by viewModel.playlists.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showDevicesSheet by remember { mutableStateOf(false) }
+    var showAddToPlaylistSheet by remember { mutableStateOf(false) }
+    var selectedTrackForPlaylist by remember { mutableStateOf<Track?>(null) }
 
     val colors = SangitaThemeColors.current
+    val activeTab = uiState.selectedFilter ?: "Playlists"
 
     val currentPlayingTrackId by remember(playbackState) {
         derivedStateOf { playbackState.value.currentTrack?.id }
     }
 
-    val regularPlaylists = remember(filteredPlaylists) {
-        filteredPlaylists.filter { !it.isFavorites && !it.name.equals("Favorites", ignoreCase = true) }
+    val regularPlaylists = remember(libraryPlaylists) {
+        libraryPlaylists.filter { !it.isFavorites && !it.name.equals("Favorites", ignoreCase = true) }
     }
 
     Scaffold(
@@ -171,7 +194,8 @@ fun LibraryScreen(
                             text = "Library",
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Bold,
-                            color = colors.textPrimary
+                            color = colors.textPrimary,
+                            modifier = Modifier.semantics { heading() }
                         )
                     }
 
@@ -190,19 +214,32 @@ fun LibraryScreen(
                         // Profile avatar circle (clickable to open Settings)
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(colors.cardHover)
-                                .border(1.dp, colors.border, CircleShape)
-                                .clickable { viewModel.openSettingsSheet() },
+                                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                .clickable(
+                                    role = Role.Button,
+                                    onClickLabel = "Open settings",
+                                    onClick = viewModel::openSettingsSheet
+                                )
+                                .semantics {
+                                    contentDescription = "Account and Settings"
+                                },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "${viewModel.userInitial}",
-                                color = colors.textPrimary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(colors.cardHover)
+                                    .border(1.dp, colors.border, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${viewModel.userInitial}",
+                                    color = colors.textPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -251,50 +288,87 @@ fun LibraryScreen(
                                     fontWeight = FontWeight.Normal
                                 ),
                                 cursorBrush = SolidColor(colors.accent),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics {
+                                        contentDescription = "Search songs and playlists"
+                                    }
                             )
                         }
                         if (uiState.searchQuery.isNotEmpty()) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Clear",
+                                contentDescription = "Clear search query",
                                 tint = colors.textMuted,
                                 modifier = Modifier
                                     .size(18.dp)
-                                    .clickable { viewModel.onSearchQueryChange("") }
+                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                    .clickable(
+                                        role = Role.Button,
+                                        onClickLabel = "Clear search query"
+                                    ) { viewModel.onSearchQueryChange("") }
                             )
                         }
                     }
                 }
 
-                // Sub-header: Clean 'Recent activity' label (removed dropdown arrow and 4-box grid icon)
-                if (uiState.searchQuery.isBlank()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Recent activity",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = colors.textPrimary,
-                            fontSize = 14.sp
-                        )
+                // Horizontal filter chips: Playlists, Artists, Songs, Downloads
+                val filterTabs = listOf("Playlists", "Artists", "Songs", "Downloads")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    filterTabs.forEach { tab ->
+                        val isSelected = activeTab.equals(tab, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSelected) colors.textPrimary else colors.card)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) colors.textPrimary else colors.border,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable(
+                                    role = Role.Tab,
+                                    onClick = { viewModel.selectFilter(tab) }
+                                )
+                                .semantics {
+                                    selected = isSelected
+                                    stateDescription = if (isSelected) "Selected" else "Not selected"
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = tab,
+                                color = if (isSelected) colors.background else colors.textSecondary,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
         },
         floatingActionButton = {
-            // New Playlist FAB: shown only in standard library view
-            if (uiState.searchQuery.isBlank()) {
+            // New Playlist FAB: shown on Playlists tab when search query is blank
+            if (uiState.searchQuery.isBlank() && activeTab.equals("Playlists", ignoreCase = true)) {
                 Box(
                     modifier = Modifier
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(colors.textPrimary)
-                        .clickable(onClick = viewModel::openCreateDialog)
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = "Create new playlist",
+                            onClick = viewModel::openCreateDialog
+                        )
                         .padding(horizontal = 18.dp, vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -383,7 +457,9 @@ fun LibraryScreen(
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = colors.textPrimary,
-                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp)
+                                modifier = Modifier
+                                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp)
+                                    .semantics { heading() }
                             )
                         }
 
@@ -411,7 +487,9 @@ fun LibraryScreen(
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = colors.textPrimary,
-                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp)
+                                modifier = Modifier
+                                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp)
+                                    .semantics { heading() }
                             )
                         }
 
@@ -427,60 +505,223 @@ fun LibraryScreen(
                                 isPlayingThisTrack = currentPlayingTrackId == track.id,
                                 onClick = { viewModel.playTrack(track) },
                                 onDownloadClick = { viewModel.downloadTrack(track) },
+                                onDeleteDownload = { viewModel.deleteDownloadedTrack(track) },
                                 onToggleFavorite = { viewModel.toggleFavorite(track) },
-                                onMenuClick = { /* Track context menu */ },
+                                onAddToPlaylist = {
+                                    selectedTrackForPlaylist = track
+                                    showAddToPlaylistSheet = true
+                                },
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                             )
                         }
                     }
                 }
             } else {
-                // Recoverable offline playlists banner
-                if (recoverablePlaylists.isNotEmpty()) {
-                    item(key = "recoverable_legacy_banner") {
-                        LegacyRecoveryBanner(
-                            count = recoverablePlaylists.size,
-                            onInspect = viewModel::openRecoveryDialog,
-                            onRecoverAll = {
-                                viewModel.recoverAllLegacyPlaylists { count ->
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Recovered $count offline playlist${if (count == 1) "" else "s"}")
+                when (activeTab) {
+                    "Playlists" -> {
+                        // Recoverable offline playlists banner
+                        if (recoverablePlaylists.isNotEmpty()) {
+                            item(key = "recoverable_legacy_banner") {
+                                LegacyRecoveryBanner(
+                                    count = recoverablePlaylists.size,
+                                    onInspect = viewModel::openRecoveryDialog,
+                                    onRecoverAll = {
+                                        viewModel.recoverAllLegacyPlaylists { count ->
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("Recovered $count offline playlist${if (count == 1) "" else "s"}")
+                                            }
+                                        }
                                     }
+                                )
+                            }
+                        }
+
+                        val favPlaylist = libraryPlaylists.firstOrNull { it.isFavorites }
+                        val isPlaylistsEmpty = regularPlaylists.isEmpty() && (favPlaylist == null || favPlaylist.trackCount == 0)
+
+                        if (isPlaylistsEmpty) {
+                            item(key = "empty_playlists") {
+                                LibraryEmptyState(
+                                    icon = Icons.Default.MusicNote,
+                                    title = "Your library is empty",
+                                    description = "Discover shared music in the catalog or create your personal playlist.",
+                                    colors = colors,
+                                    primaryButtonText = "Explore Discover",
+                                    onPrimaryClick = onNavigateToDiscover,
+                                    secondaryButtonText = "Create Playlist",
+                                    onSecondaryClick = viewModel::openCreateDialog
+                                )
+                            }
+                        } else {
+                            // First Item: 'Liked music' (pinned auto playlist)
+                            item(key = "liked_music", contentType = "pinned_playlist") {
+                                LikedMusicRow(
+                                    onClick = { onPlaylistClick(favPlaylist?.id ?: "Favorites") },
+                                    onDownloadAll = {
+                                        viewModel.downloadPlaylist(
+                                            favPlaylist ?: Playlist(name = "Favorites", isFavorites = true)
+                                        )
+                                    }
+                                )
+                            }
+
+                            // Regular Playlists
+                            items(
+                                items = regularPlaylists,
+                                key = { it.id },
+                                contentType = { "playlist" }
+                            ) { playlist ->
+                                PlaylistItemRow(
+                                    playlist = playlist,
+                                    username = viewModel.username,
+                                    serverUrl = viewModel.serverUrl,
+                                    token = viewModel.token,
+                                    onClick = { onPlaylistClick(playlist.id) },
+                                    onDownloadAll = { viewModel.downloadPlaylist(playlist) }
+                                )
+                            }
+                        }
+                    }
+
+                    "Artists" -> {
+                        if (libraryArtists.isEmpty()) {
+                            item(key = "empty_artists") {
+                                LibraryEmptyState(
+                                    icon = Icons.Default.Person,
+                                    title = "No saved artists",
+                                    description = "Find your favorite artists in Discover and save them to your library.",
+                                    colors = colors,
+                                    primaryButtonText = "Explore Discover",
+                                    onPrimaryClick = onNavigateToDiscover
+                                )
+                            }
+                        } else {
+                            items(
+                                items = libraryArtists,
+                                key = { "artist_${it.id}_${it.name}" },
+                                contentType = { "artist" }
+                            ) { artist ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.weight(1f)) {
+                                        LibraryArtistRow(artist = artist, serverUrl = viewModel.serverUrl, onClick = { onArtistClick(artist.id) })
+                                    }
+                                    TextButton(
+                                        onClick = { viewModel.removeSavedArtist(artist.id) { ok -> scope.launch { snackbarHostState.showSnackbar(if (ok) "Artist removed from library" else "Could not remove artist") } } },
+                                        modifier = Modifier
+                                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                            .semantics { contentDescription = "Remove ${artist.name} from library" }
+                                    ) { Text("Remove") }
                                 }
                             }
-                        )
+                        }
+                    }
+
+                    "Songs" -> {
+                        if (librarySongs.isEmpty()) {
+                            item(key = "empty_songs") {
+                                LibraryEmptyState(
+                                    icon = Icons.Default.MusicNote,
+                                    title = "No songs in library",
+                                    description = "Save tracks or playlists from Discover to start building your personal collection.",
+                                    colors = colors,
+                                    primaryButtonText = "Explore Discover",
+                                    onPrimaryClick = onNavigateToDiscover
+                                )
+                            }
+                        } else {
+                            items(
+                                items = librarySongs,
+                                key = { "song_${it.id}" },
+                                contentType = { "song" }
+                            ) { track ->
+                                TrackItemRow(
+                                    track = track,
+                                    serverUrl = viewModel.serverUrl,
+                                    token = viewModel.token,
+                                    isPlayingThisTrack = currentPlayingTrackId == track.id,
+                                    onClick = { viewModel.playTrack(track) },
+                                    onDownloadClick = { viewModel.downloadTrack(track) },
+                                    onDeleteDownload = { viewModel.deleteDownloadedTrack(track) },
+                                    onToggleFavorite = { viewModel.toggleFavorite(track) },
+                                    onAddToPlaylist = {
+                                        selectedTrackForPlaylist = track
+                                        showAddToPlaylistSheet = true
+                                    },
+                                    onToggleSave = {
+                                        viewModel.removeSavedTrack(track.id) { ok ->
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    if (ok) "Song removed from library" else "Could not remove song"
+                                                )
+                                            }
+                                        }
+                                    },
+                                    isSaved = true,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    "Downloads" -> {
+                        if (downloadedTracks.isEmpty()) {
+                            item(key = "empty_downloads") {
+                                LibraryEmptyState(
+                                    icon = Icons.Default.Download,
+                                    title = "No offline downloads",
+                                    description = "Download songs or playlists to listen offline anywhere without an internet connection.",
+                                    colors = colors,
+                                    primaryButtonText = "Explore Discover",
+                                    onPrimaryClick = onNavigateToDiscover
+                                )
+                            }
+                        } else {
+                            items(
+                                items = downloadedTracks,
+                                key = { "downloaded_${it.id}" },
+                                contentType = { "downloaded_track" }
+                            ) { track ->
+                                TrackItemRow(
+                                    track = track,
+                                    serverUrl = viewModel.serverUrl,
+                                    token = viewModel.token,
+                                    isPlayingThisTrack = currentPlayingTrackId == track.id,
+                                    onClick = { viewModel.playTrack(track) },
+                                    onDownloadClick = { viewModel.downloadTrack(track) },
+                                    onDeleteDownload = { viewModel.deleteDownloadedTrack(track) },
+                                    onToggleFavorite = { viewModel.toggleFavorite(track) },
+                                    onAddToPlaylist = {
+                                        selectedTrackForPlaylist = track
+                                        showAddToPlaylistSheet = true
+                                    },
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
                 }
-
-                // First Item: 'Liked music' (pinned auto playlist)
-                item(key = "liked_music", contentType = "pinned_playlist") {
-                    val favPlaylist = filteredPlaylists.firstOrNull { it.isFavorites }
-                    LikedMusicRow(
-                        onClick = { onPlaylistClick(favPlaylist?.id ?: "Favorites") },
-                        onDownloadAll = {
-                            viewModel.downloadPlaylist(
-                                favPlaylist ?: Playlist(name = "Favorites", isFavorites = true)
-                            )
-                        }
-                    )
-                }
-
-                // Regular Playlists:
-                items(
-                    items = regularPlaylists,
-                    key = { it.id },
-                    contentType = { "playlist" }
-                ) { playlist ->
-                    PlaylistItemRow(
-                        playlist = playlist,
-                        username = viewModel.username,
-                        serverUrl = viewModel.serverUrl,
-                        token = viewModel.token,
-                        onClick = { onPlaylistClick(playlist.id) },
-                        onDownloadAll = { viewModel.downloadPlaylist(playlist) }
-                    )
-                }
             }
+        }
+
+        // Add to Playlist Sheet
+        if (showAddToPlaylistSheet && selectedTrackForPlaylist != null) {
+            AddToPlaylistSheet(
+                track = selectedTrackForPlaylist,
+                playlists = playlists,
+                onSelectPlaylist = { playlist ->
+                    showAddToPlaylistSheet = false
+                    viewModel.addTrackToPlaylist(playlist, selectedTrackForPlaylist!!) { success ->
+                        scope.launch {
+                            snackbarHostState.showSnackbar(if (success) "Added to ${playlist.name}" else "Could not add track")
+                        }
+                    }
+                },
+                onCreateNewPlaylist = {
+                    showAddToPlaylistSheet = false
+                    viewModel.openCreatePlaylistDialog()
+                },
+                onDismiss = { showAddToPlaylistSheet = false }
+            )
         }
 
         // Create Playlist Dialog
@@ -596,7 +837,11 @@ fun LikedMusicRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open Liked music",
+                onClick = onClick
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -604,13 +849,14 @@ fun LikedMusicRow(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Brush.linearGradient(listOf(LikedMusicPurple, LikedMusicMagenta))),
+                .background(colors.elevated)
+                .border(1.dp, colors.border, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.ThumbUp,
-                contentDescription = "Liked music",
-                tint = Color.White,
+                contentDescription = null,
+                tint = colors.accent,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -646,11 +892,11 @@ fun LikedMusicRow(
         Box {
             IconButton(
                 onClick = { menuExpanded = true },
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More options",
+                    contentDescription = "More options for Liked music",
                     tint = colors.textSecondary,
                     modifier = Modifier.size(20.dp)
                 )
@@ -705,7 +951,11 @@ fun PlaylistItemRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open playlist ${playlist.name}",
+                onClick = onClick
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -734,6 +984,15 @@ fun PlaylistItemRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
+
+                if (playlist.isDownloaded) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = "Downloaded offline",
+                        tint = colors.accent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
 
                 // Sync state badge
                 if (playlist.syncState != PlaylistSyncState.SYNCED) {
@@ -788,11 +1047,11 @@ fun PlaylistItemRow(
         Box {
             IconButton(
                 onClick = { menuExpanded = true },
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More options",
+                    contentDescription = "More options for ${playlist.name}",
                     tint = colors.textSecondary,
                     modifier = Modifier.size(20.dp)
                 )
@@ -925,7 +1184,7 @@ private fun LegacyRecoveryBanner(
             Icon(
                 imageVector = Icons.Default.Restore,
                 contentDescription = null,
-                tint = SangitaEmerald,
+                tint = colors.accent,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(10.dp))
@@ -944,14 +1203,18 @@ private fun LegacyRecoveryBanner(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             TextButton(
                 onClick = onInspect,
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier.height(40.dp)
             ) {
                 Text(
                     text = "Review",
-                    color = SangitaEmerald,
+                    color = colors.accent,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -960,11 +1223,11 @@ private fun LegacyRecoveryBanner(
                 onClick = onRecoverAll,
                 shape = RoundedCornerShape(6.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SangitaEmerald,
-                    contentColor = colors.background
+                    containerColor = colors.accent,
+                    contentColor = colors.buttonContent
                 ),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                modifier = Modifier.height(30.dp)
+                modifier = Modifier.height(40.dp)
             ) {
                 Text(
                     text = "Recover All",
@@ -972,6 +1235,193 @@ private fun LegacyRecoveryBanner(
                     fontWeight = FontWeight.Bold
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun LibraryEmptyState(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    colors: SangitaColors,
+    primaryButtonText: String,
+    onPrimaryClick: () -> Unit,
+    secondaryButtonText: String? = null,
+    onSecondaryClick: (() -> Unit)? = null
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp, vertical = 64.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(colors.card)
+                .border(1.dp, colors.border, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = colors.accent,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = colors.textPrimary,
+            textAlign = TextAlign.Center,
+            fontSize = 18.sp
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.textMuted,
+            textAlign = TextAlign.Center,
+            fontSize = 14.sp,
+            lineHeight = 20.sp
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = onPrimaryClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.textPrimary,
+                    contentColor = colors.background
+                ),
+                shape = RoundedCornerShape(20.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = primaryButtonText,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+
+            if (secondaryButtonText != null && onSecondaryClick != null) {
+                Button(
+                    onClick = onSecondaryClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.card,
+                        contentColor = colors.textPrimary
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.border),
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = secondaryButtonText,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LibraryArtistRow(
+    artist: ArtistDto,
+    serverUrl: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = SangitaThemeColors.current
+    val context = LocalContext.current
+    val fullImageUrl = remember(artist.imageUrl, serverUrl) {
+        val url = artist.imageUrl
+        if (url.isNullOrBlank()) null
+        else if (url.startsWith("http://") || url.startsWith("https://")) url
+        else "${serverUrl.trimEnd('/')}/${url.trimStart('/')}"
+    }
+
+    val imageRequest = remember(fullImageUrl) {
+        fullImageUrl?.let {
+            ImageRequest.Builder(context)
+                .data(it)
+                .crossfade(true)
+                .size(120, 120)
+                .build()
+        }
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open artist ${artist.name}",
+                onClick = onClick
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(colors.card)
+                .border(1.dp, colors.border, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (imageRequest != null) {
+                AsyncImage(
+                    model = imageRequest,
+                    contentDescription = artist.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = colors.textMuted,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(14.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = artist.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            val trackCountText = if (artist.trackCount > 0) "${artist.trackCount} ${if (artist.trackCount == 1) "track" else "tracks"}" else "Artist"
+            Text(
+                text = "Artist • $trackCountText",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

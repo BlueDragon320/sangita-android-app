@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,6 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,7 +82,8 @@ fun AddToPlaylistSheet(
                     text = "Add to playlist",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = colors.textPrimary
+                    color = colors.textPrimary,
+                    modifier = Modifier.semantics { heading() }
                 )
                 if (track != null) {
                     Spacer(modifier = Modifier.height(2.dp))
@@ -102,10 +107,15 @@ fun AddToPlaylistSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        onDismiss()
-                        onCreateNewPlaylist()
-                    }
+                    .defaultMinSize(minHeight = 48.dp)
+                    .clickable(
+                        role = Role.Button,
+                        onClickLabel = "Create new playlist",
+                        onClick = {
+                            onDismiss()
+                            onCreateNewPlaylist()
+                        }
+                    )
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -119,7 +129,7 @@ fun AddToPlaylistSheet(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Create New Playlist",
+                        contentDescription = null,
                         tint = colors.accent,
                         modifier = Modifier.size(24.dp)
                     )
@@ -159,10 +169,15 @@ fun AddToPlaylistSheet(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    onSelectPlaylist(playlist)
-                                    onDismiss()
-                                }
+                                .defaultMinSize(minHeight = 48.dp)
+                                .clickable(
+                                    role = Role.Button,
+                                    onClickLabel = "Add to ${playlist.title}",
+                                    onClick = {
+                                        onSelectPlaylist(playlist)
+                                        onDismiss()
+                                    }
+                                )
                                 .padding(horizontal = 20.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {

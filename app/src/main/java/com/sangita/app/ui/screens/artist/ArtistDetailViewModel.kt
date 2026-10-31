@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.sangita.app.data.local.preferences.UserPreferences
 import com.sangita.app.data.remote.dto.ArtistDetailDto
 import com.sangita.app.data.remote.dto.ArtistTrackDto
+import com.sangita.app.download.SangitaDownloadManager
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.domain.model.Track
 import com.sangita.app.domain.repository.ArtistAddCollectionResult
@@ -33,7 +34,8 @@ class ArtistDetailViewModel(
     val musicRepository: MusicRepository,
     val playbackController: PlaybackController,
     val userPreferences: UserPreferences? = null,
-    val connectivityObserver: NetworkConnectivityObserver? = null
+    val connectivityObserver: NetworkConnectivityObserver? = null,
+    val downloadManager: SangitaDownloadManager? = null
 ) : ViewModel() {
 
     // Overloaded constructor supporting (musicRepository, playbackController, artistId)
@@ -41,7 +43,7 @@ class ArtistDetailViewModel(
         musicRepository: MusicRepository,
         playbackController: PlaybackController,
         artistId: String
-    ) : this(artistId, musicRepository, playbackController, null, null)
+    ) : this(artistId, musicRepository, playbackController, null, null, null)
 
     val serverUrl: String = userPreferences?.getServerUrl().orEmpty()
     val token: String? = userPreferences?.getToken()
@@ -55,6 +57,46 @@ class ArtistDetailViewModel(
 
     init {
         loadArtist()
+        viewModelScope.launch { musicRepository.getSavedArtists(); musicRepository.getSavedTracks() }
+    }
+
+    val savedArtists = musicRepository.observeSavedArtists().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val savedTracks = musicRepository.observeSavedTracks().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val favorites: StateFlow<List<Track>> = musicRepository.observeFavorites().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val downloadedTracks: StateFlow<List<Track>> = musicRepository.observeDownloadedTracks().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun toggleSavedArtist(isSaved: Boolean, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch { onResult((if (isSaved) musicRepository.removeArtist(artistId) else musicRepository.saveArtist(artistId)).isSuccess) }
+    }
+    fun toggleSavedTrack(path: String, isSaved: Boolean, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch { onResult((if (isSaved) musicRepository.removeTrack(path) else musicRepository.saveTrack(path)).isSuccess) }
+    }
+
+    fun toggleFavorite(track: ArtistTrackDto, onComplete: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val artistName = _uiState.value.artist?.name.orEmpty()
+            val domainTrack = track.toTrack(artistName)
+            val result = musicRepository.toggleFavorite(domainTrack)
+            onComplete?.invoke(result.getOrDefault(false))
+        }
+    }
+
+    fun downloadTrack(track: ArtistTrackDto) {
+        val artistName = _uiState.value.artist?.name.orEmpty()
+        val domainTrack = track.toTrack(artistName)
+        downloadManager?.downloadTrack(domainTrack)
+    }
+
+    fun deleteDownloadedTrack(track: ArtistTrackDto) {
+        viewModelScope.launch {
+            downloadManager?.removeDownloadedTrack(track.path)
+        }
+    }
+
+    fun deleteDownloadedTrack(track: Track) {
+        viewModelScope.launch {
+            downloadManager?.removeDownloadedTrack(track.id)
+        }
     }
 
     fun refresh() {

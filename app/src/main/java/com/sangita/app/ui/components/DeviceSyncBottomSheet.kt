@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,12 +42,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sangita.app.sync.SyncedDevice
-import com.sangita.app.ui.theme.SangitaEmerald
 import com.sangita.app.ui.theme.SangitaThemeColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,13 +94,13 @@ fun DeviceSyncBottomSheet(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(SangitaEmerald.copy(alpha = 0.15f)),
+                            .background(colors.accent.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Devices,
                             contentDescription = null,
-                            tint = SangitaEmerald,
+                            tint = colors.accent,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -103,7 +110,8 @@ fun DeviceSyncBottomSheet(
                             text = "Connect to a device",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = colors.textPrimary
+                            color = colors.textPrimary,
+                            modifier = Modifier.semantics { heading() }
                         )
                         Text(
                             text = "Control playback or switch audio output",
@@ -115,17 +123,16 @@ fun DeviceSyncBottomSheet(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (onRefresh != null) {
-                        IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
+                        IconButton(onClick = onRefresh, modifier = Modifier.size(48.dp)) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Refresh devices",
                                 tint = colors.textMuted,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.width(4.dp))
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
@@ -139,17 +146,66 @@ fun DeviceSyncBottomSheet(
             Spacer(modifier = Modifier.height(14.dp))
 
             if (devices.isEmpty()) {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 20.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(vertical = 24.dp, horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(colors.borderHi.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Devices,
+                            contentDescription = null,
+                            tint = colors.textMuted,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "No other devices found",
-                        color = colors.textMuted,
-                        fontSize = 13.sp
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.textPrimary
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Open Sangita on your computer, tablet, or another phone logged in to the same account to transfer playback.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textMuted,
+                        textAlign = TextAlign.Center
+                    )
+                    if (onRefresh != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = onRefresh,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colors.accent,
+                                contentColor = colors.buttonContent
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Check for devices",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -185,13 +241,21 @@ private fun DeviceItemRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
-            .clickable(enabled = !device.isActive, onClick = onTransfer),
+            .heightIn(min = 68.dp)
+            .clickable(
+                enabled = !device.isActive,
+                role = Role.Button,
+                onClickLabel = "Transfer playback to ${device.deviceName}",
+                onClick = onTransfer
+            )
+            .semantics {
+                stateDescription = if (device.isActive) "Active device" else "Available device"
+            },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = colors.card),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (device.isActive) SangitaEmerald.copy(alpha = 0.5f) else colors.border
+            if (device.isActive) colors.accent.copy(alpha = 0.5f) else colors.border
         )
     ) {
         Row(
@@ -211,14 +275,14 @@ private fun DeviceItemRow(
                     .size(38.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(
-                        if (device.isActive) SangitaEmerald.copy(alpha = 0.15f) else colors.borderHi.copy(alpha = 0.1f)
+                        if (device.isActive) colors.accent.copy(alpha = 0.15f) else colors.borderHi.copy(alpha = 0.1f)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (device.isActive) SangitaEmerald else colors.textMuted,
+                    tint = if (device.isActive) colors.accent else colors.textMuted,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -243,14 +307,14 @@ private fun DeviceItemRow(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(SangitaEmerald.copy(alpha = 0.15f))
-                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                                .background(colors.accent.copy(alpha = 0.15f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = "THIS DEVICE",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = SangitaEmerald
+                                text = "This device",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = colors.accent
                             )
                         }
                     }
@@ -263,14 +327,14 @@ private fun DeviceItemRow(
                         modifier = Modifier
                             .size(6.dp)
                             .clip(CircleShape)
-                            .background(if (device.isActive) SangitaEmerald else colors.textMuted)
+                            .background(if (device.isActive) colors.accent else colors.textMuted)
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = if (device.isActive) "Active · Playing here" else "Connected",
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 11.sp,
-                        color = if (device.isActive) SangitaEmerald else colors.textMuted
+                        color = if (device.isActive) colors.accent else colors.textMuted
                     )
                 }
             }
@@ -281,33 +345,37 @@ private fun DeviceItemRow(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
-                        .background(SangitaEmerald.copy(alpha = 0.15f))
-                        .border(1.dp, SangitaEmerald.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                        .background(colors.accent.copy(alpha = 0.15f))
+                        .border(1.dp, colors.accent.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "ACTIVE",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = SangitaEmerald
+                        text = "Active",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.accent
                     )
                 }
             } else {
                 Button(
                     onClick = onTransfer,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SangitaEmerald,
-                        contentColor = Color.Black
+                        containerColor = colors.accent,
+                        contentColor = colors.buttonContent
                     ),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                    modifier = Modifier.height(30.dp)
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .semantics {
+                            contentDescription = "Transfer playback to ${device.deviceName}"
+                        }
                 ) {
                     Text(
-                        text = if (device.isMe) "PLAY HERE" else "SWITCH HERE",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
+                        text = if (device.isMe) "Play here" else "Switch here",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }

@@ -12,6 +12,8 @@ import com.sangita.app.data.remote.dto.CreateUserPlaylistRequest
 import com.sangita.app.data.remote.dto.DataUsageResponse
 import com.sangita.app.data.remote.dto.DeletePlaylistResponseDto
 import com.sangita.app.data.remote.dto.LegacyPlaylistMutationDto
+import com.sangita.app.data.remote.dto.LibraryArtistsResponseDto
+import com.sangita.app.data.remote.dto.LibraryTracksResponseDto
 import com.sangita.app.data.remote.dto.LoginRequest
 import com.sangita.app.data.remote.dto.LoginResponse
 import com.sangita.app.data.remote.dto.LyricsResponse
@@ -22,6 +24,7 @@ import com.sangita.app.data.remote.dto.PlaylistsResponseDto
 import com.sangita.app.data.remote.dto.PlaylistTrackActionRequest
 import com.sangita.app.data.remote.dto.RecordDataUsageRequest
 import com.sangita.app.data.remote.dto.RemoveTrackResponseDto
+import com.sangita.app.data.remote.dto.SaveTrackRequest
 import com.sangita.app.data.remote.dto.SourcesResponseDto
 import com.sangita.app.data.remote.dto.StatsPingRequest
 import com.sangita.app.data.remote.dto.SetFavoriteRequest
@@ -90,6 +93,25 @@ interface SangitaApiService {
 
     @DELETE("api/v2/playlists/{id}/save")
     suspend fun removePlaylistFromLibrary(@Path("id") playlistId: String): Response<Map<String, String>>
+
+    // V2 Library Saved Artists & Tracks Endpoints
+    @GET("api/v2/library/artists")
+    suspend fun getSavedArtists(): Response<LibraryArtistsResponseDto>
+
+    @POST("api/v2/artists/{id}/save")
+    suspend fun saveArtist(@Path("id") artistId: String): Response<Map<String, String>>
+
+    @DELETE("api/v2/artists/{id}/save")
+    suspend fun removeArtist(@Path("id") artistId: String): Response<Map<String, String>>
+
+    @GET("api/v2/library/tracks")
+    suspend fun getSavedTracks(): Response<LibraryTracksResponseDto>
+
+    @POST("api/v2/library/tracks")
+    suspend fun saveTrack(@Body request: SaveTrackRequest): Response<com.sangita.app.data.remote.dto.SaveActionResponseDto>
+
+    @DELETE("api/v2/library/tracks")
+    suspend fun removeTrack(@Query("track_path") trackPath: String): Response<Map<String, String>>
 
     @POST("api/v2/playlists/{id}/clone")
     suspend fun clonePlaylist(@Path("id") playlistId: String, @Body request: ClonePlaylistRequest): Response<PlaylistDetailDto>

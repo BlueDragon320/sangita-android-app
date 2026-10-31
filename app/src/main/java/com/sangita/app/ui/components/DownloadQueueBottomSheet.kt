@@ -18,10 +18,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -57,6 +59,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -92,7 +97,13 @@ fun DownloadQueueIconButton(
     )
 
     Box(
-        modifier = modifier.size(36.dp),
+        modifier = modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open download queue",
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -104,8 +115,7 @@ fun DownloadQueueIconButton(
                     width = 1.dp,
                     color = if (activeCount > 0) colors.accent.copy(alpha = alphaPulse) else colors.border,
                     shape = CircleShape
-                )
-                .clickable(onClick = onClick),
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -211,7 +221,8 @@ fun DownloadQueueBottomSheet(
                             text = "Live Downloads",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = colors.textPrimary
+                            color = colors.textPrimary,
+                            modifier = Modifier.semantics { heading() }
                         )
                         if (activeTasks.isNotEmpty() && totalSpeedBytesPerSec > 0) {
                             Text(
@@ -244,6 +255,7 @@ fun DownloadQueueBottomSheet(
                     if (hasTasks) {
                         TextButton(
                             onClick = onCancelAll,
+                            modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -260,17 +272,24 @@ fun DownloadQueueBottomSheet(
                     IconButton(
                         onClick = onDismiss,
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(colors.card)
-                            .border(1.dp, colors.border, CircleShape)
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .size(48.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = colors.textMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(colors.card)
+                                .border(1.dp, colors.border, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close downloads",
+                                tint = colors.textMuted,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }

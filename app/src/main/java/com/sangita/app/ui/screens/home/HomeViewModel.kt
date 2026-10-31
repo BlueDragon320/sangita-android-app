@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.sangita.app.data.local.preferences.UserPreferences
 import com.sangita.app.data.remote.api.NetworkClient
 import com.sangita.app.data.remote.dto.UserStatsResponse
+import com.sangita.app.domain.model.Playlist
 import com.sangita.app.domain.model.Track
 import com.sangita.app.domain.repository.MusicRepository
 import com.sangita.app.domain.repository.SyncRepository
@@ -71,6 +72,11 @@ class HomeViewModel(
     val tracksMap: StateFlow<Map<String, Track>> = musicRepository.observeAllTracks()
         .map { list -> list.associateBy { it.id } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    val playlists: StateFlow<List<Playlist>> = musicRepository.observePlaylists()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val userPlaylists: StateFlow<List<Playlist>> = playlists
 
     init {
         viewModelScope.launch {
@@ -265,5 +271,30 @@ class HomeViewModel(
 
     fun downloadTrack(track: Track) {
         downloadManager.downloadTrack(track)
+    }
+
+    fun deleteDownloadedTrack(track: Track) {
+        viewModelScope.launch {
+            downloadManager.removeDownloadedTrack(track.id)
+        }
+    }
+
+    fun addTrackToPlaylist(playlist: Playlist, track: Track, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val result = musicRepository.addTrackToPlaylist(playlist.id, track)
+            onComplete(result.isSuccess)
+        }
+    }
+
+    fun createPlaylist(
+        title: String,
+        description: String? = null,
+        isPublic: Boolean = false,
+        onCreated: (Playlist) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val result = musicRepository.createPlaylist(title = title, description = description, isPublic = isPublic)
+            result.getOrNull()?.let { onCreated(it) }
+        }
     }
 }

@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -21,12 +23,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
@@ -56,24 +57,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sangita.app.data.local.preferences.UserPreferences
-import com.sangita.app.ui.theme.DarkBorder
-import com.sangita.app.ui.theme.DarkSurface
-import com.sangita.app.ui.theme.DarkSurfaceVariant
-import com.sangita.app.ui.theme.Emerald500
-import com.sangita.app.ui.theme.EmeraldDim
 import com.sangita.app.ui.theme.ErrorRed
-import com.sangita.app.ui.theme.MetricBlue
-import com.sangita.app.ui.theme.SangitaBlack
-import com.sangita.app.ui.theme.SangitaCard
 import com.sangita.app.ui.theme.SangitaThemeColors
-import com.sangita.app.ui.theme.TextMuted
-import com.sangita.app.ui.theme.TextPrimary
-import com.sangita.app.ui.theme.TextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,16 +118,20 @@ fun SettingsBottomSheet(
                         text = "Settings",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = colors.textPrimary,
+                        modifier = Modifier.semantics { heading() }
                     )
                     Text(
                         text = "Customize server connection & app appearance",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted
+                        color = colors.textMuted
                     )
                 }
-                IconButton(onClick = onDismiss) {
-                    Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = TextSecondary)
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Close, contentDescription = "Close settings", tint = colors.textSecondary)
                 }
             }
 
@@ -156,13 +155,13 @@ fun SettingsBottomSheet(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0x1F3B82F6)),
+                                    .background(colors.elevated),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Dns,
                                     contentDescription = null,
-                                    tint = MetricBlue,
+                                    tint = colors.textSecondary,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -172,39 +171,32 @@ fun SettingsBottomSheet(
                                     text = "Server Domain",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary
+                                    color = colors.textPrimary,
+                                    modifier = Modifier.semantics { heading() }
                                 )
                                 Text(
                                     text = "Endpoint for streaming & sync",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = TextMuted
+                                    color = colors.textMuted
                                 )
                             }
                         }
 
-                        // Online Badge
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0x1F34D399))
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(Emerald500)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "ONLINE",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Emerald500
-                                )
-                            }
+                        // Online Status: Quiet 6px static dot with sentence-case label at 11sp
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF22C55E))
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Online",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = colors.textSecondary
+                            )
                         }
                     }
 
@@ -225,7 +217,7 @@ fun SettingsBottomSheet(
                                 text = connectedDomain.ifBlank { "No domain configured" },
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
-                                color = TextPrimary,
+                                color = colors.textPrimary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
@@ -233,16 +225,17 @@ fun SettingsBottomSheet(
                             Spacer(modifier = Modifier.width(8.dp))
                             TextButton(
                                 onClick = { isEditingDomain = true },
+                                modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp),
-                                    tint = Emerald500
+                                    tint = colors.accent
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Edit", color = Emerald500, fontSize = 12.sp)
+                                Text("Edit", color = colors.accent, fontSize = 12.sp)
                             }
                         }
                     } else {
@@ -255,12 +248,12 @@ fun SettingsBottomSheet(
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Emerald500,
+                                focusedBorderColor = colors.accent,
                                 unfocusedBorderColor = colors.border,
-                                focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary,
-                                focusedLabelColor = Emerald500,
-                                unfocusedLabelColor = TextMuted,
+                                focusedTextColor = colors.textPrimary,
+                                unfocusedTextColor = colors.textPrimary,
+                                focusedLabelColor = colors.accent,
+                                unfocusedLabelColor = colors.textMuted,
                                 focusedContainerColor = colors.surface,
                                 unfocusedContainerColor = colors.surface
                             ),
@@ -272,7 +265,7 @@ fun SettingsBottomSheet(
                             Text(
                                 text = msg,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (msg.contains("Success", ignoreCase = true) || msg.contains("Connected", ignoreCase = true)) Emerald500 else ErrorRed
+                                color = if (msg.contains("Success", ignoreCase = true) || msg.contains("Connected", ignoreCase = true)) colors.accent else ErrorRed
                             )
                         }
 
@@ -287,9 +280,10 @@ fun SettingsBottomSheet(
                                     isEditingDomain = false
                                     domainInput = connectedDomain
                                     domainStatusMsg = null
-                                }
+                                },
+                                modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                             ) {
-                                Text("Cancel", color = TextMuted)
+                                Text("Cancel", color = colors.textMuted)
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Button(
@@ -304,18 +298,22 @@ fun SettingsBottomSheet(
                                     }
                                 },
                                 enabled = !isDomainValidating && domainInput.isNotBlank(),
-                                colors = ButtonDefaults.buttonColors(containerColor = Emerald500),
+                                modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = colors.accent,
+                                    contentColor = colors.buttonContent
+                                ),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 if (isDomainValidating) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(16.dp),
                                         strokeWidth = 2.dp,
-                                        color = SangitaBlack
+                                        color = colors.buttonContent
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                 }
-                                Text("Save & Connect", color = SangitaBlack, fontWeight = FontWeight.Bold)
+                                Text("Save & connect", color = colors.buttonContent, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -337,13 +335,13 @@ fun SettingsBottomSheet(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0x1F34D399)),
+                                .background(colors.elevated),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Palette,
                                 contentDescription = null,
-                                tint = Emerald500,
+                                tint = colors.textSecondary,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -353,12 +351,13 @@ fun SettingsBottomSheet(
                                 text = "Theme & Appearance",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
+                                color = colors.textPrimary,
+                                modifier = Modifier.semantics { heading() }
                             )
                             Text(
                                 text = "Select your preferred visual style",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted
+                                color = colors.textMuted
                             )
                         }
                     }
@@ -368,7 +367,7 @@ fun SettingsBottomSheet(
                     // 3 Theme Options
                     ThemeOptionRow(
                         title = "Pure AMOLED Black",
-                        subtitle = "Pitch black #000000 & emerald accents (Matches Web)",
+                        subtitle = "Pitch black #000000 with steel blue accents",
                         icon = Icons.Default.DarkMode,
                         isSelected = activeTheme == UserPreferences.THEME_AMOLED,
                         onClick = {
@@ -424,19 +423,21 @@ fun SettingsBottomSheet(
                             Text(
                                 text = "Logged in as",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted
+                                color = colors.textMuted,
+                                modifier = Modifier.semantics { heading() }
                             )
                             Text(
                                 text = username,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                                color = colors.textPrimary
                             )
                         }
 
                         OutlinedButton(
                             onClick = onSyncNow,
                             enabled = !isSyncing,
+                            modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
                             shape = RoundedCornerShape(10.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
                         ) {
@@ -447,21 +448,28 @@ fun SettingsBottomSheet(
                                     imageVector = Icons.Default.Refresh,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
-                                    tint = Emerald500
+                                    tint = colors.accent
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Sync Now", color = Emerald500, fontSize = 12.sp)
+                                Text("Sync Now", color = colors.accent, fontSize = 12.sp)
                             }
                         }
                     }
                     if (pendingChanges > 0) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("$pendingChanges change${if (pendingChanges == 1) "" else "s"} waiting to sync",
-                            style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+                        Text(
+                            text = "$pendingChanges change${if (pendingChanges == 1) "" else "s"} waiting to sync",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.textSecondary
+                        )
                     }
                     if (syncError != null) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(syncError, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
+                        Text(
+                            text = syncError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ErrorRed
+                        )
                     }
                 }
             }
@@ -474,17 +482,19 @@ fun SettingsBottomSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0x1FEF4444)),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x4DEF4444)),
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Logout,
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
                     contentDescription = null,
                     tint = ErrorRed,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Sign Out & Switch Server",
+                    text = "Sign out & switch server",
                     color = ErrorRed,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -492,11 +502,11 @@ fun SettingsBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // App Version Footer
+            // App Version Footer - Clean version without template buzzwords
             Text(
-                text = "Sangita Mobile Native v1.0.0 • Inter Design System",
+                text = "Sangita Mobile v1.0.0",
                 style = MaterialTheme.typography.labelSmall,
-                color = TextMuted,
+                color = colors.textMuted,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
@@ -510,13 +520,13 @@ fun SettingsBottomSheet(
                 Text(
                     text = "Sign Out?",
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = colors.textPrimary
                 )
             },
             text = {
                 Text(
                     text = "You will be logged out of $connectedDomain and returned to the server setup screen.",
-                    color = TextSecondary
+                    color = colors.textSecondary
                 )
             },
             confirmButton = {
@@ -525,15 +535,19 @@ fun SettingsBottomSheet(
                         showLogoutConfirm = false
                         onLogout()
                     },
+                    modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Sign Out", color = Color.White)
+                    Text("Sign out", color = Color.White)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutConfirm = false }) {
-                    Text("Cancel", color = TextMuted)
+                TextButton(
+                    onClick = { showLogoutConfirm = false },
+                    modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                ) {
+                    Text("Cancel", color = colors.textMuted)
                 }
             },
             containerColor = colors.surface
@@ -550,8 +564,8 @@ private fun ThemeOptionRow(
     onClick: () -> Unit
 ) {
     val colors = SangitaThemeColors.current
-    val borderColor = if (isSelected) Emerald500 else colors.border
-    val bgColor = if (isSelected) Color(0x1434D399) else colors.surface
+    val borderColor = if (isSelected) colors.accent else colors.border
+    val bgColor = if (isSelected) colors.accent.copy(alpha = 0.08f) else colors.surface
 
     Row(
         modifier = Modifier
@@ -559,7 +573,15 @@ private fun ThemeOptionRow(
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
+            .defaultMinSize(minHeight = 48.dp)
+            .clickable(
+                role = Role.RadioButton,
+                onClick = onClick
+            )
+            .semantics {
+                selected = isSelected
+                stateDescription = if (isSelected) "Selected" else "Not selected"
+            }
             .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -571,7 +593,7 @@ private fun ThemeOptionRow(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isSelected) Emerald500 else TextMuted,
+                tint = if (isSelected) colors.accent else colors.textMuted,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(10.dp))
@@ -580,12 +602,12 @@ private fun ThemeOptionRow(
                     text = title,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) TextPrimary else TextSecondary
+                    color = if (isSelected) colors.textPrimary else colors.textSecondary
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
+                    color = colors.textMuted
                 )
             }
         }
@@ -593,8 +615,8 @@ private fun ThemeOptionRow(
         if (isSelected) {
             Icon(
                 imageVector = Icons.Default.CheckCircle,
-                contentDescription = "Selected",
-                tint = Emerald500,
+                contentDescription = null,
+                tint = colors.accent,
                 modifier = Modifier.size(20.dp)
             )
         }

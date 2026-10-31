@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -66,6 +67,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -85,6 +91,7 @@ import com.sangita.app.ui.theme.DeepNavyBlue
 import com.sangita.app.ui.theme.DeepOceanBlue
 import com.sangita.app.ui.theme.Emerald500
 import com.sangita.app.ui.theme.FavoritePink
+import com.sangita.app.ui.theme.SangitaThemeColors
 import com.sangita.app.ui.theme.SoftSteelBlue
 import com.sangita.app.ui.theme.TextMuted
 import com.sangita.app.ui.theme.TextPrimary
@@ -101,6 +108,22 @@ fun PlayerScreen(
     val devices by viewModel.devices.collectAsState()
     var showDevicesSheet by remember { mutableStateOf(false) }
     val track = state.currentTrack ?: return
+
+    val colors = SangitaThemeColors.current
+    val receiverName = if (!state.isActiveDevice) {
+        state.activeDeviceName ?: devices.firstOrNull { it.isActive }?.deviceName ?: "Web Player"
+    } else {
+        "this phone"
+    }
+    val timestampStyle = MaterialTheme.typography.labelSmall.copy(
+        fontFeatureSettings = "tnum"
+    )
+    val shuffleDesc = if (state.shuffleModeEnabled) "Shuffle on" else "Shuffle off"
+    val (repeatIcon, repeatDesc) = when (state.repeatMode) {
+        RepeatMode.ONE -> Icons.Default.RepeatOne to "Repeat one"
+        RepeatMode.ALL -> Icons.Default.Repeat to "Repeat all"
+        RepeatMode.OFF -> Icons.Default.Repeat to "Repeat off"
+    }
 
     val context = LocalContext.current
     val coverModel = rememberCoverModel(track.id, track.localFilePath, viewModel.serverUrl, viewModel.token, track.isDownloaded)
@@ -135,14 +158,16 @@ fun PlayerScreen(
     }
 
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background)
     ) {
         if (isLandscape) {
         // Landscape Mode: 2-Column Side-by-Side Immersive Layout
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .background(DarkBackground)
+                .background(colors.background)
                 .then(
                     if (isFullscreen) {
                         Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
@@ -170,32 +195,33 @@ fun PlayerScreen(
                         onBackClick()
                     },
                     modifier = Modifier
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                         .align(Alignment.TopStart)
                         .padding(top = 4.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = TextPrimary
+                        tint = colors.textPrimary
                     )
                 }
 
                 AsyncImage(
                     model = coverModel,
-                    contentDescription = track.title,
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxHeight(0.85f)
                         .aspectRatio(1f)
-                        .shadow(16.dp, RoundedCornerShape(16.dp))
+                        .shadow(if (colors.isAmoled) 0.dp else 16.dp, RoundedCornerShape(16.dp))
                         .clip(RoundedCornerShape(16.dp))
-                        .background(DarkBorder)
+                        .background(colors.border)
                 )
             }
 
             Spacer(modifier = Modifier.width(20.dp))
 
-            // Right Column: Metadata, Scrubber, Playback Controls
+            // Right Column: Metadata, Scrubber, Playback Controls, Device Status
             Column(
                 modifier = Modifier
                     .weight(0.60f)
@@ -210,35 +236,48 @@ fun PlayerScreen(
                 ) {
                     Column {
                         Text(
-                            text = "PLAYING FROM",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
-                            fontSize = 9.sp
+                            text = "Playing from",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textMuted
                         )
                         Text(
                             text = track.playlist,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
+                            color = colors.textPrimary,
+                            modifier = Modifier.semantics { heading() }
                         )
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { isFullscreen = !isFullscreen }) {
+                        IconButton(
+                            onClick = { isFullscreen = !isFullscreen },
+                            modifier = Modifier
+                                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                .semantics {
+                                    stateDescription = if (isFullscreen) "Fullscreen active" else "Fullscreen inactive"
+                                }
+                        ) {
                             Icon(
                                 imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                                 contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen",
-                                tint = if (isFullscreen) Emerald500 else TextPrimary
+                                tint = if (isFullscreen) colors.accent else colors.textPrimary
                             )
                         }
-                        IconButton(onClick = onOpenLyrics) {
-                            Icon(imageVector = Icons.Default.Lyrics, contentDescription = "Lyrics", tint = Emerald500)
+                        IconButton(
+                            onClick = onOpenLyrics,
+                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Lyrics, contentDescription = "Lyrics", tint = colors.accent)
                         }
-                        IconButton(onClick = { showDevicesSheet = true }) {
+                        IconButton(
+                            onClick = { showDevicesSheet = true },
+                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Devices,
-                                contentDescription = "Connect to device",
-                                tint = if (!state.isActiveDevice) Emerald500 else TextPrimary
+                                contentDescription = "Output device: $receiverName",
+                                tint = if (!state.isActiveDevice) colors.accent else colors.textPrimary
                             )
                         }
                     }
@@ -254,33 +293,49 @@ fun PlayerScreen(
                             text = track.title,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
+                            color = colors.textPrimary,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.semantics { heading() }
                         )
                         Text(
                             text = track.artist,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
+                            color = colors.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    IconButton(onClick = { viewModel.toggleFavorite(track) }) {
+                    IconButton(
+                        onClick = { viewModel.toggleFavorite(track) },
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .semantics {
+                                stateDescription = if (track.isFavorite) "In favorites" else "Not in favorites"
+                                role = Role.Checkbox
+                            }
+                    ) {
                         Icon(
                             imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = if (track.isFavorite) FavoritePink else TextMuted,
+                            contentDescription = if (track.isFavorite) "Remove from favorites" else "Add to favorites",
+                            tint = if (track.isFavorite) FavoritePink else colors.textMuted,
                             modifier = Modifier.size(24.dp)
                         )
                     }
 
-                    IconButton(onClick = viewModel::downloadCurrentTrack) {
+                    IconButton(
+                        onClick = viewModel::downloadCurrentTrack,
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .semantics {
+                                stateDescription = if (track.isDownloaded) "Downloaded" else "Not downloaded"
+                            }
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Download,
-                            contentDescription = "Download",
-                            tint = if (track.isDownloaded) Emerald500 else TextMuted,
+                            contentDescription = if (track.isDownloaded) "Downloaded offline" else "Download track",
+                            tint = if (track.isDownloaded) colors.accent else colors.textMuted,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -294,9 +349,9 @@ fun PlayerScreen(
                         onValueChangeFinished = finishScrubbing,
                         enabled = durationMs > 0,
                         colors = SliderDefaults.colors(
-                            thumbColor = DeepNavyBlue,
-                            activeTrackColor = DeepNavyBlue,
-                            inactiveTrackColor = SoftSteelBlue
+                            thumbColor = colors.accent,
+                            activeTrackColor = colors.accent,
+                            inactiveTrackColor = colors.borderHi.copy(alpha = 0.5f)
                         ),
                         modifier = Modifier.fillMaxWidth().height(24.dp)
                     )
@@ -304,8 +359,8 @@ fun PlayerScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(text = formatSeconds(posSec), style = MaterialTheme.typography.labelSmall, color = Emerald500)
-                        Text(text = formatSeconds(durSec), style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                        Text(text = formatSeconds(posSec), style = timestampStyle, color = colors.accent)
+                        Text(text = formatSeconds(durSec), style = timestampStyle, color = colors.textMuted)
                     }
                 }
 
@@ -315,20 +370,31 @@ fun PlayerScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = viewModel::toggleShuffle) {
+                    IconButton(
+                        onClick = viewModel::toggleShuffle,
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .semantics {
+                                stateDescription = if (state.shuffleModeEnabled) "Shuffle on" else "Shuffle off"
+                                role = Role.Checkbox
+                            }
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Shuffle,
-                            contentDescription = "Shuffle",
-                            tint = if (state.shuffleModeEnabled) Emerald500 else TextMuted,
+                            contentDescription = shuffleDesc,
+                            tint = if (state.shuffleModeEnabled) colors.accent else colors.textMuted,
                             modifier = Modifier.size(22.dp)
                         )
                     }
 
-                    IconButton(onClick = viewModel::skipPrevious) {
+                    IconButton(
+                        onClick = viewModel::skipPrevious,
+                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.SkipPrevious,
                             contentDescription = "Previous",
-                            tint = TextPrimary,
+                            tint = colors.textPrimary,
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -337,44 +403,92 @@ fun PlayerScreen(
                         modifier = Modifier
                             .size(54.dp)
                             .clip(CircleShape)
-                            .background(Emerald500),
+                            .background(colors.accent),
                         contentAlignment = Alignment.Center
                     ) {
-                        IconButton(onClick = viewModel::togglePlayPause) {
+                        IconButton(
+                            onClick = viewModel::togglePlayPause,
+                            modifier = Modifier
+                                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                .semantics {
+                                    stateDescription = if (state.isPlaying) "Playing" else "Paused"
+                                }
+                        ) {
                             if (state.isBuffering) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(26.dp),
-                                    color = DeepNavyBlue,
+                                    color = colors.buttonContent,
                                     strokeWidth = 2.5.dp
                                 )
                             } else {
                                 Icon(
                                     imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                     contentDescription = if (state.isPlaying) "Pause" else "Play",
-                                    tint = DeepNavyBlue,
+                                    tint = colors.buttonContent,
                                     modifier = Modifier.size(32.dp)
                                 )
                             }
                         }
                     }
 
-                    IconButton(onClick = viewModel::skipNext) {
+                    IconButton(
+                        onClick = viewModel::skipNext,
+                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.SkipNext,
                             contentDescription = "Next",
-                            tint = TextPrimary,
+                            tint = colors.textPrimary,
                             modifier = Modifier.size(32.dp)
                         )
                     }
 
-                    IconButton(onClick = viewModel::toggleRepeatMode) {
+                    IconButton(
+                        onClick = viewModel::toggleRepeatMode,
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .semantics {
+                                stateDescription = when (state.repeatMode) {
+                                    RepeatMode.ONE -> "Repeat one"
+                                    RepeatMode.ALL -> "Repeat all"
+                                    RepeatMode.OFF -> "Repeat off"
+                                }
+                            }
+                    ) {
                         Icon(
-                            imageVector = if (state.repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                            contentDescription = "Repeat",
-                            tint = if (state.repeatMode != RepeatMode.OFF) Emerald500 else TextMuted,
+                            imageVector = repeatIcon,
+                            contentDescription = repeatDesc,
+                            tint = if (state.repeatMode != RepeatMode.OFF) colors.accent else colors.textMuted,
                             modifier = Modifier.size(22.dp)
                         )
                     }
+                }
+
+                // Explicit Output Device Indication
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .clip(RoundedCornerShape(16.dp))
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = "Change output device"
+                        ) { showDevicesSheet = true }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Devices,
+                        contentDescription = "Output device: $receiverName",
+                        tint = if (!state.isActiveDevice) colors.accent else colors.textMuted,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Playing on $receiverName",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (!state.isActiveDevice) colors.accent else colors.textMuted
+                    )
                 }
             }
         }
@@ -383,7 +497,7 @@ fun PlayerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(DarkBackground)
+                .background(colors.background)
                 .then(
                     if (isFullscreen) {
                         Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
@@ -400,45 +514,61 @@ fun PlayerScreen(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "PLAYING FROM",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
-                            fontSize = 10.sp
+                            text = "Playing from",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textMuted
                         )
                         Text(
                             text = track.playlist,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
+                            color = colors.textPrimary,
+                            modifier = Modifier.semantics { heading() }
                         )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        if (isFullscreen) {
-                            isFullscreen = false
-                        }
-                        onBackClick()
-                    }) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary)
+                    IconButton(
+                        onClick = {
+                            if (isFullscreen) {
+                                isFullscreen = false
+                            }
+                            onBackClick()
+                        },
+                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
                     }
                 },
                 actions = {
-                    IconButton(onClick = { isFullscreen = !isFullscreen }) {
+                    IconButton(
+                        onClick = { isFullscreen = !isFullscreen },
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .semantics {
+                                stateDescription = if (isFullscreen) "Fullscreen active" else "Fullscreen inactive"
+                            }
+                    ) {
                         Icon(
                             imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                             contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen",
-                            tint = if (isFullscreen) Emerald500 else TextPrimary
+                            tint = if (isFullscreen) colors.accent else colors.textPrimary
                         )
                     }
-                    IconButton(onClick = onOpenLyrics) {
-                        Icon(imageVector = Icons.Default.Lyrics, contentDescription = "Lyrics", tint = Emerald500)
+                    IconButton(
+                        onClick = onOpenLyrics,
+                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Lyrics, contentDescription = "Lyrics", tint = colors.accent)
                     }
-                    IconButton(onClick = { showDevicesSheet = true }) {
+                    IconButton(
+                        onClick = { showDevicesSheet = true },
+                        modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Devices,
-                            contentDescription = "Connect to device",
-                            tint = if (!state.isActiveDevice) Emerald500 else TextPrimary
+                            contentDescription = "Output device: $receiverName",
+                            tint = if (!state.isActiveDevice) colors.accent else colors.textPrimary
                         )
                     }
                 },
@@ -456,14 +586,14 @@ fun PlayerScreen(
             ) {
                 AsyncImage(
                     model = coverModel,
-                    contentDescription = track.title,
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
                         .aspectRatio(1f)
-                        .shadow(16.dp, RoundedCornerShape(20.dp))
+                        .shadow(if (colors.isAmoled) 0.dp else 16.dp, RoundedCornerShape(20.dp))
                         .clip(RoundedCornerShape(20.dp))
-                        .background(DarkBorder)
+                        .background(colors.border)
                 )
             }
 
@@ -479,34 +609,50 @@ fun PlayerScreen(
                         text = track.title,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
+                        color = colors.textPrimary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.semantics { heading() }
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = track.artist,
                         style = MaterialTheme.typography.titleMedium,
-                        color = TextSecondary,
+                        color = colors.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                IconButton(onClick = { viewModel.toggleFavorite(track) }) {
+                IconButton(
+                    onClick = { viewModel.toggleFavorite(track) },
+                    modifier = Modifier
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        .semantics {
+                            stateDescription = if (track.isFavorite) "In favorites" else "Not in favorites"
+                            role = Role.Checkbox
+                        }
+                ) {
                     Icon(
                         imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (track.isFavorite) FavoritePink else TextMuted,
+                        contentDescription = if (track.isFavorite) "Remove from favorites" else "Add to favorites",
+                        tint = if (track.isFavorite) FavoritePink else colors.textMuted,
                         modifier = Modifier.size(28.dp)
                     )
                 }
 
-                IconButton(onClick = viewModel::downloadCurrentTrack) {
+                IconButton(
+                    onClick = viewModel::downloadCurrentTrack,
+                    modifier = Modifier
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        .semantics {
+                            stateDescription = if (track.isDownloaded) "Downloaded" else "Not downloaded"
+                        }
+                ) {
                     Icon(
                         imageVector = Icons.Default.Download,
-                        contentDescription = "Download",
-                        tint = if (track.isDownloaded) Emerald500 else TextMuted,
+                        contentDescription = if (track.isDownloaded) "Downloaded offline" else "Download track",
+                        tint = if (track.isDownloaded) colors.accent else colors.textMuted,
                         modifier = Modifier.size(26.dp)
                     )
                 }
@@ -521,9 +667,9 @@ fun PlayerScreen(
                 onValueChangeFinished = finishScrubbing,
                 enabled = durationMs > 0,
                 colors = SliderDefaults.colors(
-                    thumbColor = DeepNavyBlue,
-                    activeTrackColor = DeepNavyBlue,
-                    inactiveTrackColor = SoftSteelBlue
+                    thumbColor = colors.accent,
+                    activeTrackColor = colors.accent,
+                    inactiveTrackColor = colors.borderHi.copy(alpha = 0.5f)
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -532,8 +678,8 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = formatSeconds(posSec), style = MaterialTheme.typography.labelSmall, color = Emerald500)
-                Text(text = formatSeconds(durSec), style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                Text(text = formatSeconds(posSec), style = timestampStyle, color = colors.accent)
+                Text(text = formatSeconds(durSec), style = timestampStyle, color = colors.textMuted)
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -542,16 +688,24 @@ fun PlayerScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Shuffle
-                IconButton(onClick = viewModel::toggleShuffle) {
+                IconButton(
+                    onClick = viewModel::toggleShuffle,
+                    modifier = Modifier
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        .semantics {
+                            stateDescription = if (state.shuffleModeEnabled) "Shuffle on" else "Shuffle off"
+                            role = Role.Checkbox
+                        }
+                ) {
                     Icon(
                         imageVector = Icons.Default.Shuffle,
-                        contentDescription = "Shuffle",
-                        tint = if (state.shuffleModeEnabled) Emerald500 else TextMuted
+                        contentDescription = shuffleDesc,
+                        tint = if (state.shuffleModeEnabled) colors.accent else colors.textMuted
                     )
                 }
 
@@ -560,7 +714,7 @@ fun PlayerScreen(
                     Icon(
                         imageVector = Icons.Default.SkipPrevious,
                         contentDescription = "Previous",
-                        tint = TextPrimary,
+                        tint = colors.textPrimary,
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -570,21 +724,28 @@ fun PlayerScreen(
                     modifier = Modifier
                         .size(68.dp)
                         .clip(CircleShape)
-                        .background(Emerald500),
+                        .background(colors.accent),
                     contentAlignment = Alignment.Center
                 ) {
-                    IconButton(onClick = viewModel::togglePlayPause) {
+                    IconButton(
+                        onClick = viewModel::togglePlayPause,
+                        modifier = Modifier
+                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            .semantics {
+                                stateDescription = if (state.isPlaying) "Playing" else "Paused"
+                            }
+                    ) {
                         if (state.isBuffering) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(32.dp),
-                                color = DeepNavyBlue,
+                                color = colors.buttonContent,
                                 strokeWidth = 3.dp
                             )
                         } else {
                             Icon(
                                 imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = if (state.isPlaying) "Pause" else "Play",
-                                tint = DeepNavyBlue,
+                                tint = colors.buttonContent,
                                 modifier = Modifier.size(38.dp)
                             )
                         }
@@ -596,20 +757,60 @@ fun PlayerScreen(
                     Icon(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = "Next",
-                        tint = TextPrimary,
+                        tint = colors.textPrimary,
                         modifier = Modifier.size(36.dp)
                     )
                 }
 
                 // Repeat
-                IconButton(onClick = viewModel::toggleRepeatMode) {
+                IconButton(
+                    onClick = viewModel::toggleRepeatMode,
+                    modifier = Modifier
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        .semantics {
+                            stateDescription = when (state.repeatMode) {
+                                RepeatMode.ONE -> "Repeat one"
+                                RepeatMode.ALL -> "Repeat all"
+                                RepeatMode.OFF -> "Repeat off"
+                            }
+                        }
+                ) {
                     Icon(
-                        imageVector = if (state.repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                        contentDescription = "Repeat",
-                        tint = if (state.repeatMode != RepeatMode.OFF) Emerald500 else TextMuted
+                        imageVector = repeatIcon,
+                        contentDescription = repeatDesc,
+                        tint = if (state.repeatMode != RepeatMode.OFF) colors.accent else colors.textMuted
                     )
                 }
             }
+
+            // Explicit Output Device Indication
+            Row(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .clip(RoundedCornerShape(20.dp))
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    .clickable(
+                        role = Role.Button,
+                        onClickLabel = "Change output device"
+                    ) { showDevicesSheet = true }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Devices,
+                    contentDescription = "Output device: $receiverName",
+                    tint = if (!state.isActiveDevice) colors.accent else colors.textMuted,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Playing on $receiverName",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (!state.isActiveDevice) colors.accent else colors.textMuted
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

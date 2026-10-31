@@ -3,8 +3,10 @@ package com.sangita.app.ui.screens.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sangita.app.data.local.dao.PlaylistDao
+import com.sangita.app.data.local.dao.TrackDao
 import com.sangita.app.data.local.preferences.UserPreferences
 import com.sangita.app.data.remote.api.NetworkClient
+import com.sangita.app.data.remote.dto.ArtistDto
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.domain.model.Track
 import com.sangita.app.domain.repository.MusicRepository
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -27,7 +30,7 @@ import kotlinx.coroutines.launch
 data class LibraryUiState(
     val searchQuery: String = "",
     val isSearchActive: Boolean = false,
-    val selectedFilter: String? = null,
+    val selectedFilter: String? = "Playlists",
     val showCreateDialog: Boolean = false,
     val showRecoveryDialog: Boolean = false,
     val newPlaylistName: String = "",
@@ -50,7 +53,8 @@ class LibraryViewModel(
     val downloadManager: SangitaDownloadManager,
     val deviceSyncManager: DeviceSyncManager? = null,
     private val connectivityObserver: com.sangita.app.sync.NetworkConnectivityObserver,
-    private val playlistDao: PlaylistDao? = null
+    private val playlistDao: PlaylistDao? = null,
+    private val trackDao: TrackDao? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -81,7 +85,7 @@ class LibraryViewModel(
     val userInitial: Char
         get() = username.firstOrNull()?.uppercaseChar() ?: 'B'
 
-    val filteredPlaylists: StateFlow<List<Playlist>> = combine(
+    val libraryPlaylists: StateFlow<List<Playlist>> = combine(
         musicRepository.observePlaylists(),
         musicRepository.observeDownloadedTracks(),
         userPreferences.observeSavedPlaylistIds(),
@@ -102,10 +106,7 @@ class LibraryViewModel(
         }
 
         val basePlaylists = if (online) {
-            when (state.selectedFilter) {
-                "Playlists" -> libraryPlaylists.filter { !it.isFavorites }
-                else -> libraryPlaylists
-            }
+            libraryPlaylists
         } else {
             val downloadedIds = downloadedTracks.filter { it.isDownloaded }.map { it.id }.toSet()
             val offlineList = mutableListOf<Playlist>()
@@ -139,7 +140,52 @@ class LibraryViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val playlists: StateFlow<List<Playlist>> = filteredPlaylists
+    val playlists: StateFlow<List<Playlist>> = libraryPlaylists
+    val filteredPlaylists: StateFlow<List<Playlist>> = libraryPlaylists
+
+    val librarySongs: StateFlow<List<Track>> = combine(
+        musicRepository.observeSavedTracks(), musicRepository.observeDownloadedTracks(), isOnline, _uiState
+    ) { saved, downloads, online, state ->
+        val downloadedById = downloads.associateBy { it.id }
+        val visible = if (online) saved else saved.mapNotNull { downloadedById[it.id] }
+        val query = state.searchQuery.trim()
+        visible.filter { query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val libraryArtists: StateFlow<List<ArtistDto>> = combine(
+        musicRepository.observeSavedArtists(), _uiState
+    ) { artists, state ->
+        val query = state.searchQuery.trim()
+        artists.filter { query.isBlank() || it.name.contains(query, true) }.sortedBy { it.name.lowercase() }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        viewModelScope.launch { musicRepository.getSavedArtists(); musicRepository.getSavedTracks() }
+    }
+
+    fun removeSavedTrack(path: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch { onResult(musicRepository.removeTrack(path).isSuccess) }
+    }
+
+    fun removeSavedArtist(id: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch { onResult(musicRepository.removeArtist(id).isSuccess) }
+    }
+
+    val downloadedTracks: StateFlow<List<Track>> = combine(
+        musicRepository.observeDownloadedTracks(),
+        _uiState
+    ) { tracks, state ->
+        val query = state.searchQuery.trim()
+        if (query.isBlank()) {
+            tracks
+        } else {
+            tracks.filter { track ->
+                track.title.contains(query, ignoreCase = true) ||
+                track.artist.contains(query, ignoreCase = true) ||
+                track.album.contains(query, ignoreCase = true)
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val filteredTracks: StateFlow<List<Track>> = combine(
         musicRepository.observeAllTracks(),
@@ -179,12 +225,31 @@ class LibraryViewModel(
 
     fun setFilter(filter: String?) {
         _uiState.update {
-            it.copy(selectedFilter = if (it.selectedFilter == filter) null else filter)
+            it.copy(selectedFilter = filter ?: "Playlists")
+        }
+    }
+
+    fun selectFilter(filter: String) {
+        _uiState.update {
+            it.copy(selectedFilter = filter)
         }
     }
 
     fun openCreateDialog() {
         _uiState.update { it.copy(showCreateDialog = true, newPlaylistName = "") }
+    }
+
+    fun openCreatePlaylistDialog() = openCreateDialog()
+
+    fun addTrackToPlaylist(playlist: Playlist, track: Track, onResult: ((Boolean) -> Unit)? = null) {
+        addTrackToPlaylist(playlist.id, track, onResult)
+    }
+
+    fun addTrackToPlaylist(playlistKey: String, track: Track, onResult: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val result = musicRepository.addTrackToPlaylist(playlistKey, track)
+            onResult?.invoke(result.isSuccess)
+        }
     }
 
     fun closeCreateDialog() {
@@ -391,5 +456,11 @@ class LibraryViewModel(
 
     fun downloadTrack(track: Track) {
         downloadManager.downloadTrack(track)
+    }
+
+    fun deleteDownloadedTrack(track: Track) {
+        viewModelScope.launch {
+            downloadManager.removeDownloadedTrack(track.id)
+        }
     }
 }

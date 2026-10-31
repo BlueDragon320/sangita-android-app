@@ -6,7 +6,12 @@ import com.sangita.app.domain.model.PlaylistKind
 import com.sangita.app.domain.model.PlaylistSyncState
 import com.sangita.app.domain.model.Track
 import com.sangita.app.domain.repository.MusicRepository
+import com.sangita.app.download.SangitaDownloadManager
 import com.sangita.app.sync.NetworkConnectivityObserver
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -52,13 +57,16 @@ class PlaylistViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun TestScope.createViewModel(playlistKey: String = "playlist-123"): PlaylistViewModel {
+    private fun TestScope.createViewModel(
+        playlistKey: String = "playlist-123",
+        downloadManager: SangitaDownloadManager? = null
+    ): PlaylistViewModel {
         val viewModel = PlaylistViewModel(
             playlistKey = playlistKey,
             musicRepository = fakeRepository,
             userPreferences = fakePreferences,
             playbackController = null,
-            downloadManager = null,
+            downloadManager = downloadManager,
             deviceSyncManager = null,
             connectivityObserver = fakeConnectivityObserver
         )
@@ -418,6 +426,52 @@ class PlaylistViewModelTest {
 
         assertEquals(listOf(downloaded), viewModel.tracks.value)
     }
+
+    @Test
+    fun downloadTrack_availableTrack_invokesDownloadManager() = runTest(testDispatcher) {
+        val downloadManager: SangitaDownloadManager = mockk(relaxed = true)
+        val viewModel = createViewModel(downloadManager = downloadManager)
+        val track = Track(id = "track_1", title = "Available Track", isAvailable = true)
+
+        viewModel.downloadTrack(track)
+
+        verify { downloadManager.downloadTrack(track) }
+    }
+
+    @Test
+    fun downloadTrack_unavailableTrack_doesNotInvokeDownloadManager() = runTest(testDispatcher) {
+        val downloadManager: SangitaDownloadManager = mockk(relaxed = true)
+        val viewModel = createViewModel(downloadManager = downloadManager)
+        val track = Track(id = "track_2", title = "Unavailable Track", isAvailable = false)
+
+        viewModel.downloadTrack(track)
+
+        verify(exactly = 0) { downloadManager.downloadTrack(any()) }
+    }
+
+    @Test
+    fun deleteDownloadedTrack_invokesRemoveDownloadedTrack() = runTest(testDispatcher) {
+        val downloadManager: SangitaDownloadManager = mockk(relaxed = true)
+        coEvery { downloadManager.removeDownloadedTrack("track_1") } returns true
+        val viewModel = createViewModel(downloadManager = downloadManager)
+        val track = Track(id = "track_1", title = "Track 1", isAvailable = true)
+
+        viewModel.deleteDownloadedTrack(track)
+        advanceUntilIdle()
+
+        coVerify { downloadManager.removeDownloadedTrack("track_1") }
+    }
+
+    @Test
+    fun toggleFavorite_invokesMusicRepository() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        val track = Track(id = "track_fav", title = "Favorite Track")
+
+        viewModel.toggleFavorite(track)
+        advanceUntilIdle()
+
+        assertEquals(track, fakeRepository.lastToggledFavoriteTrack)
+    }
 }
 
 // -------------------------------------------------------------
@@ -499,7 +553,12 @@ open class FakeMusicRepository : MusicRepository {
 
     override fun observeDownloadedTracks(): Flow<List<Track>> = flowOf(emptyList())
 
-    override suspend fun toggleFavorite(track: Track): Result<Boolean> = Result.success(true)
+    var lastToggledFavoriteTrack: Track? = null
+
+    override suspend fun toggleFavorite(track: Track): Result<Boolean> {
+        lastToggledFavoriteTrack = track
+        return Result.success(true)
+    }
 
     override suspend fun createPlaylist(title: String, description: String?, isPublic: Boolean): Result<Playlist> {
         val created = Playlist(

@@ -72,6 +72,17 @@ interface MusicRepository {
     fun isPlaylistSaved(playlistId: String): Flow<Boolean> = kotlinx.coroutines.flow.flowOf(false)
     fun observeSavedPlaylistIds(): Flow<Set<String>> = kotlinx.coroutines.flow.flowOf(emptySet())
 
+    // Library Saved Artists & Tracks
+    fun observeSavedArtists(): Flow<List<ArtistDto>> = kotlinx.coroutines.flow.emptyFlow()
+    suspend fun getSavedArtists(): Result<List<ArtistDto>> = Result.success(emptyList())
+    suspend fun saveArtist(artistId: String): Result<Unit> = Result.success(Unit)
+    suspend fun removeArtist(artistId: String): Result<Unit> = Result.success(Unit)
+
+    fun observeSavedTracks(): Flow<List<Track>> = kotlinx.coroutines.flow.emptyFlow()
+    suspend fun getSavedTracks(): Result<List<Track>> = Result.success(emptyList())
+    suspend fun saveTrack(trackPath: String): Result<Unit> = Result.success(Unit)
+    suspend fun removeTrack(trackPath: String): Result<Unit> = Result.success(Unit)
+
     // Add Artist's Complete Collection
     suspend fun addArtistCollectionToPlaylist(
         artistId: String,

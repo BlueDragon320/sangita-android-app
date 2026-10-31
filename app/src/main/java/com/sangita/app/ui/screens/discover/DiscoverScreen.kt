@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
@@ -60,6 +62,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -73,6 +81,7 @@ import com.sangita.app.domain.model.Playlist
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.NavTab
 import com.sangita.app.ui.components.SangitaBottomNavBar
+import com.sangita.app.ui.screens.library.PlaylistThumbnail
 import com.sangita.app.ui.theme.SangitaColors
 import com.sangita.app.ui.theme.SangitaThemeColors
 
@@ -116,7 +125,8 @@ fun DiscoverScreen(
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = colors.textPrimary,
-                        fontSize = 28.sp
+                        fontSize = 28.sp,
+                        modifier = Modifier.semantics { heading() }
                     )
 
                     if (uiState.isLoading) {
@@ -188,7 +198,11 @@ fun DiscoverScreen(
                                 color = colors.accent,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .clickable { viewModel.refresh() }
+                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                    .clickable(
+                                        role = Role.Button,
+                                        onClickLabel = "Retry catalog connection"
+                                    ) { viewModel.refresh() }
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
@@ -254,6 +268,15 @@ fun DiscoverScreen(
                     )
                 }
 
+                // Empty State when catalog is completely empty
+                !uiState.isLoading && uiState.errorMessage == null && uiState.searchQuery.isBlank() &&
+                    uiState.artists.isEmpty() && uiState.folderPlaylists.isEmpty() && uiState.communityPlaylists.isEmpty() -> {
+                    DiscoverEmptyCatalogState(
+                        onRefresh = viewModel::refresh,
+                        colors = colors
+                    )
+                }
+
                 // Main Content List
                 else -> {
                     LazyColumn(
@@ -307,6 +330,8 @@ fun DiscoverScreen(
                             ) { playlist ->
                                 FolderPlaylistItem(
                                     playlist = playlist,
+                                    serverUrl = viewModel.serverUrl,
+                                    token = viewModel.token,
                                     onClick = { onPlaylistClick(playlist.id) },
                                     onPlayClick = { viewModel.playPlaylist(playlist) },
                                     colors = colors,
@@ -338,6 +363,8 @@ fun DiscoverScreen(
                                 CommunityPlaylistItem(
                                     playlist = playlist,
                                     isSaved = isSaved,
+                                    serverUrl = viewModel.serverUrl,
+                                    token = viewModel.token,
                                     onClick = { onPlaylistClick(playlist.id) },
                                     onPlayClick = { viewModel.playPlaylist(playlist) },
                                     onToggleSave = { viewModel.toggleSavePlaylist(playlist) },
@@ -363,10 +390,10 @@ private fun DiscoverSearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(colors.card)
-            .border(1.dp, colors.border, RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp),
+            .border(1.dp, colors.border, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -398,13 +425,17 @@ private fun DiscoverSearchBar(
                     fontWeight = FontWeight.Normal
                 ),
                 cursorBrush = SolidColor(colors.accent),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = "Search artists and playlists"
+                    }
             )
         }
         if (searchQuery.isNotEmpty()) {
             IconButton(
                 onClick = { onSearchQueryChange("") },
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Clear,
@@ -439,7 +470,8 @@ private fun SectionHeader(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = colors.textPrimary,
-                fontSize = 18.sp
+                fontSize = 18.sp,
+                modifier = Modifier.semantics { heading() }
             )
             if (count != null) {
                 Text(
@@ -491,7 +523,11 @@ private fun ArtistCard(
             .width(96.dp)
             .defaultMinSize(minHeight = 48.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "View artist ${artist.name}",
+                onClick = onClick
+            )
             .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -546,6 +582,8 @@ private fun ArtistCard(
 @Composable
 private fun FolderPlaylistItem(
     playlist: Playlist,
+    serverUrl: String,
+    token: String?,
     onClick: () -> Unit,
     onPlayClick: () -> Unit,
     colors: SangitaColors,
@@ -560,7 +598,11 @@ private fun FolderPlaylistItem(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open playlist ${playlist.title}",
+                onClick = onClick
+            ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = colors.card),
         border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
@@ -571,20 +613,12 @@ private fun FolderPlaylistItem(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(colors.elevated),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Folder,
-                    contentDescription = null,
-                    tint = colors.accent,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            PlaylistThumbnail(
+                playlist = playlist,
+                serverUrl = serverUrl,
+                token = token,
+                modifier = Modifier.size(44.dp)
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -625,7 +659,7 @@ private fun FolderPlaylistItem(
             ) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Play playlist",
+                    contentDescription = "Play playlist ${playlist.title}",
                     tint = colors.accent
                 )
             }
@@ -637,6 +671,8 @@ private fun FolderPlaylistItem(
 private fun CommunityPlaylistItem(
     playlist: Playlist,
     isSaved: Boolean,
+    serverUrl: String,
+    token: String?,
     onClick: () -> Unit,
     onPlayClick: () -> Unit,
     onToggleSave: () -> Unit,
@@ -652,7 +688,11 @@ private fun CommunityPlaylistItem(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open playlist ${playlist.title}",
+                onClick = onClick
+            ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = colors.card),
         border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
@@ -663,20 +703,12 @@ private fun CommunityPlaylistItem(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(colors.elevated),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Public,
-                    contentDescription = null,
-                    tint = colors.textSecondary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            PlaylistThumbnail(
+                playlist = playlist,
+                serverUrl = serverUrl,
+                token = token,
+                modifier = Modifier.size(44.dp)
+            )
 
             Spacer(modifier = Modifier.width(12.dp))
 
@@ -716,11 +748,16 @@ private fun CommunityPlaylistItem(
             // Save / Bookmark button: "Add to Library" / "In Library"
             IconButton(
                 onClick = onToggleSave,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier
+                    .size(48.dp)
+                    .semantics {
+                        stateDescription = if (isSaved) "Saved to library" else "Not in library"
+                        role = Role.Checkbox
+                    }
             ) {
                 Icon(
                     imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                    contentDescription = if (isSaved) "In Library" else "Add to Library",
+                    contentDescription = if (isSaved) "Remove ${playlist.title} from library" else "Save ${playlist.title} to library",
                     tint = if (isSaved) colors.accent else colors.textSecondary,
                     modifier = Modifier.size(22.dp)
                 )
@@ -732,7 +769,7 @@ private fun CommunityPlaylistItem(
             ) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Play playlist",
+                    contentDescription = "Play playlist ${playlist.title}",
                     tint = colors.accent
                 )
             }
@@ -814,7 +851,7 @@ private fun DiscoverErrorState(
             shape = RoundedCornerShape(20.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = colors.accent,
-                contentColor = Color.White
+                contentColor = colors.buttonContent
             ),
             modifier = Modifier
                 .height(48.dp)
@@ -879,5 +916,75 @@ private fun DiscoverEmptySearchState(
             textAlign = TextAlign.Center,
             fontSize = 13.sp
         )
+    }
+}
+
+@Composable
+private fun DiscoverEmptyCatalogState(
+    onRefresh: () -> Unit,
+    colors: SangitaColors
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(colors.card)
+                .border(1.dp, colors.border, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Explore,
+                contentDescription = null,
+                tint = colors.accent,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Catalog is empty",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = colors.textPrimary,
+            fontSize = 18.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "No artists or playlists available right now.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.textSecondary,
+            textAlign = TextAlign.Center,
+            fontSize = 13.sp
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(
+            onClick = onRefresh,
+            shape = RoundedCornerShape(20.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colors.accent,
+                contentColor = colors.buttonContent
+            ),
+            modifier = Modifier
+                .height(48.dp)
+                .padding(horizontal = 16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Refresh",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+        }
     }
 }

@@ -206,7 +206,8 @@ fun SangitaNavGraph(
                     downloadManager = container.downloadManager,
                     deviceSyncManager = container.deviceSyncManager,
                     connectivityObserver = container.connectivityObserver,
-                    playlistDao = container.database.playlistDao()
+                    playlistDao = container.database.playlistDao(),
+                    trackDao = container.database.trackDao()
                 )
             }
             LibraryScreen(
@@ -214,6 +215,12 @@ fun SangitaNavGraph(
                 onPlaylistClick = { playlistName ->
                     val encoded = URLEncoder.encode(playlistName, StandardCharsets.UTF_8.toString())
                     navController.navigate(Screen.PlaylistDetail.createRoute(encoded)) {
+                        launchSingleTop = true
+                    }
+                },
+                onArtistClick = { artistId ->
+                    val encoded = URLEncoder.encode(artistId, StandardCharsets.UTF_8.toString())
+                    navController.navigate(Screen.ArtistDetail.createRoute(encoded)) {
                         launchSingleTop = true
                     }
                 },
@@ -288,7 +295,8 @@ fun SangitaNavGraph(
                     musicRepository = container.musicRepository,
                     playbackController = container.playbackController,
                     userPreferences = container.userPreferences,
-                    connectivityObserver = container.connectivityObserver
+                    connectivityObserver = container.connectivityObserver,
+                    downloadManager = container.downloadManager
                 )
             }
             ArtistDetailScreen(

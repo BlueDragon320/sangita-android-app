@@ -84,8 +84,20 @@ class PlaylistViewModel(
     val allPlaylists: StateFlow<List<Playlist>> = musicRepository.observePlaylists()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val savedTracks = musicRepository.observeSavedTracks().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         loadRemoteDetailsIfNeeded()
+        viewModelScope.launch { musicRepository.getSavedTracks() }
+    }
+
+    fun toggleSavedTrack(track: Track, isSaved: Boolean) {
+        viewModelScope.launch {
+            val result = if (isSaved) musicRepository.removeTrack(track.id) else musicRepository.saveTrack(track.id)
+            _userMessage.value = if (result.isSuccess) {
+                if (isSaved) "Song removed from library" else "Song saved to library"
+            } else "Could not update library"
+        }
     }
 
     private fun loadRemoteDetailsIfNeeded() {
@@ -360,6 +372,12 @@ class PlaylistViewModel(
     fun downloadTrack(track: Track) {
         if (track.isAvailable) {
             downloadManager?.downloadTrack(track)
+        }
+    }
+
+    fun deleteDownloadedTrack(track: Track) {
+        viewModelScope.launch {
+            downloadManager?.removeDownloadedTrack(track.id)
         }
     }
 

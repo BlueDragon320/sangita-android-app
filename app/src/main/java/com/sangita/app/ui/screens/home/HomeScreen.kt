@@ -1,9 +1,11 @@
 package com.sangita.app.ui.screens.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,31 +18,42 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.DataUsage
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -49,17 +62,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.sangita.app.ui.components.rememberCoverModel
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,41 +100,11 @@ import com.sangita.app.ui.components.NavTab
 import com.sangita.app.ui.components.SangitaBottomNavBar
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
-import com.sangita.app.ui.theme.AmbientAuraBlue
+import com.sangita.app.ui.dialogs.AddToPlaylistSheet
+import com.sangita.app.ui.dialogs.CreatePlaylistDialog
 import com.sangita.app.ui.theme.DeepNavyBlue
 import com.sangita.app.ui.theme.SangitaThemeColors
-import java.util.Calendar
-
-@Composable
-fun AmbientAuraCanvas(
-    modifier: Modifier = Modifier
-) {
-    Spacer(
-        modifier = modifier
-            .fillMaxSize()
-            .drawBehind {
-                val w = size.width
-                val h = size.height
-                // Atmospheric radial gradient drawn statically for 120 FPS buttery smooth scrolling
-                val center = Offset(w * 0.50f, h * 0.22f)
-                val radius = (w + h) * 0.44f
-
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            AmbientAuraBlue.copy(alpha = 0.28f),
-                            AmbientAuraBlue.copy(alpha = 0.10f),
-                            Color.Transparent
-                        ),
-                        center = center,
-                        radius = radius
-                    ),
-                    radius = radius,
-                    center = center
-                )
-            }
-    )
-}
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,25 +119,24 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val pendingChanges by viewModel.pendingChanges.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
-    val dataUsageToday by viewModel.dataUsageToday.collectAsState()
     val playbackState = viewModel.playbackState.collectAsState()
     val tracksMap by viewModel.tracksMap.collectAsState()
     val devices by viewModel.devices.collectAsState()
     val activeDownloads by viewModel.activeDownloads.collectAsState()
     val activeDownloadsCount by viewModel.activeDownloadsCount.collectAsState()
     val totalDownloadSpeed by viewModel.totalDownloadSpeed.collectAsState()
+    val playlists by viewModel.playlists.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val colors = SangitaThemeColors.current
 
+    var showAddToPlaylistSheet by remember { mutableStateOf(false) }
+    var selectedTrackForPlaylist by remember { mutableStateOf<Track?>(null) }
+    var showCreateDialogFromSheet by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     val currentPlayingTrackId by remember(playbackState) {
         derivedStateOf { playbackState.value.currentTrack?.id }
-    }
-
-    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    val greeting = when {
-        hour < 12 -> "Good morning"
-        hour < 18 -> "Good afternoon"
-        else -> "Good evening"
     }
 
     val userInitial = remember(uiState.username) {
@@ -155,10 +148,8 @@ fun HomeScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // Atmospheric deep-blue glow drawn statically behind content
-        AmbientAuraCanvas(modifier = Modifier.fillMaxSize())
-
         Scaffold(
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             topBar = {
                 Column(
                     modifier = Modifier
@@ -181,22 +172,22 @@ fun HomeScreen(
                                     Icon(
                                         painter = painterResource(id = R.drawable.ic_sangita_brand_logo),
                                         contentDescription = "Sangita Logo",
-                                        tint = Color.White,
+                                        tint = colors.textPrimary,
                                         modifier = Modifier.size(19.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text(
-                                        text = "SANGITA",
+                                        text = "Sangita",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = colors.textPrimary,
-                                        letterSpacing = 1.5.sp,
-                                        fontSize = 15.sp
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.semantics { heading() }
                                     )
                                     Text(
-                                        text = "$greeting, ${uiState.username}",
+                                        text = "Personal library",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = colors.textSecondary,
                                         fontSize = 12.sp
@@ -216,19 +207,32 @@ fun HomeScreen(
                                 // Profile Avatar Button with Username's First Letter
                                 Box(
                                     modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(CircleShape)
-                                        .background(colors.elevated)
-                                        .border(1.dp, colors.border, CircleShape)
-                                        .clickable(onClick = viewModel::openSettingsSheet),
+                                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                        .clickable(
+                                            role = Role.Button,
+                                            onClickLabel = "Open settings",
+                                            onClick = viewModel::openSettingsSheet
+                                        )
+                                        .semantics {
+                                            contentDescription = "Account and Settings"
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = userInitial,
-                                        color = colors.textPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .background(colors.elevated)
+                                            .border(1.dp, colors.border, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = userInitial,
+                                            color = colors.textPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -345,6 +349,26 @@ fun HomeScreen(
                 val uniqueTracks = stats?.uniqueTracks ?: 0
                 val topTracks = stats?.topTracks ?: emptyList()
                 val topSong = topTracks.firstOrNull()
+                val recentlyPlayed = stats?.recentlyPlayed ?: emptyList()
+
+                val allRecentlyPlayedDomain = remember(recentlyPlayed, tracksMap) {
+                    recentlyPlayed.map { rp ->
+                        val repoTrack = tracksMap[rp.path]
+                        Track(
+                            id = rp.path,
+                            title = rp.name,
+                            artist = rp.artist,
+                            playlist = rp.playlist,
+                            durationSeconds = repoTrack?.durationSeconds ?: (if (rp.durationSec > 0) rp.durationSec.toDouble() else null),
+                            localFilePath = repoTrack?.localFilePath,
+                            isDownloaded = repoTrack?.isDownloaded ?: false,
+                            downloadStatus = repoTrack?.downloadStatus ?: DownloadStatus.IDLE,
+                            downloadProgress = repoTrack?.downloadProgress ?: 0,
+                            fileSizeBytes = repoTrack?.fileSizeBytes ?: 0L,
+                            isFavorite = repoTrack?.isFavorite ?: false
+                        )
+                    }
+                }
 
                 val allTopTracksDomain = remember(topTracks, tracksMap) {
                     topTracks.map { tt ->
@@ -369,7 +393,7 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 90.dp)
                 ) {
-                    // 1. QUICK ACTIONS: 2x LARGER DUAL BUTTONS (50/50 HORIZONTAL SPLIT)
+                    // 1. QUICK ACTIONS: CLEAN LISTENING SHORTCUTS
                     item(contentType = "quick_actions") {
                         Column(
                             modifier = Modifier
@@ -395,23 +419,88 @@ fun HomeScreen(
                                 )
 
                                 ActionNavCard(
-                                    title = dataUsageToday.ifBlank { "0 B" },
-                                    icon = Icons.Default.DataUsage,
+                                    title = "Quick Shuffle",
+                                    icon = Icons.Default.Shuffle,
                                     modifier = Modifier.weight(1f),
-                                    onClick = { viewModel.loadHomeData(force = true) }
+                                    onClick = viewModel::quickShuffle
                                 )
                             }
                         }
 
-                        // Fine divider between Quick Actions and Listening Overview
+                        // Fine divider between Quick Actions and Next Section
                         HorizontalDivider(
                             color = colors.border,
                             thickness = 1.dp,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
                     }
 
-                    // 2. LISTENING OVERVIEW & 2x2 METRIC CARDS (CUSTOM SVG ICONS)
+                    // 2. JUMP BACK IN: RECENTLY PLAYED SHELF
+                    if (allRecentlyPlayedDomain.isNotEmpty()) {
+                        item(contentType = "jump_back_in_shelf") {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                ) {
+                                    Text(
+                                        text = "Jump Back In",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colors.textPrimary,
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.semantics { heading() }
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Pick up right where you left off",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = colors.textSecondary,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    itemsIndexed(
+                                        items = allRecentlyPlayedDomain,
+                                        key = { index, track -> "recent_${track.id}_$index" }
+                                    ) { _, track ->
+                                        RecentlyPlayedCard(
+                                            track = track,
+                                            serverUrl = viewModel.serverUrl,
+                                            token = viewModel.token,
+                                            isPlaying = currentPlayingTrackId == track.id,
+                                            onClick = { viewModel.playTrack(track, allRecentlyPlayedDomain) },
+                                            onDownloadClick = { viewModel.downloadTrack(track) },
+                                            onDeleteDownload = { viewModel.deleteDownloadedTrack(track) },
+                                            onToggleFavorite = { viewModel.toggleFavorite(track) },
+                                            onAddToPlaylist = {
+                                                selectedTrackForPlaylist = track
+                                                showAddToPlaylistSheet = true
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider(
+                                color = colors.border,
+                                thickness = 1.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                            )
+                        }
+                    }
+
+                    // 3. LISTENING OVERVIEW & 2x2 METRIC CARDS
                     item(contentType = "metrics_grid") {
                         Column(
                             modifier = Modifier
@@ -427,7 +516,7 @@ fun HomeScreen(
                                     Icon(
                                         imageVector = Icons.Default.GraphicEq,
                                         contentDescription = null,
-                                        tint = Color.White,
+                                        tint = colors.textSecondary,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -436,12 +525,19 @@ fun HomeScreen(
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = colors.textPrimary,
-                                        fontSize = 16.sp
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.semantics { heading() }
                                     )
                                 }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable(onClick = onNavigateToLibrary)
+                                    modifier = Modifier
+                                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                        .clickable(
+                                            role = Role.Button,
+                                            onClickLabel = "View all in library",
+                                            onClick = onNavigateToLibrary
+                                        )
                                 ) {
                                     Text(
                                         text = "View All",
@@ -524,7 +620,8 @@ fun HomeScreen(
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = colors.textPrimary,
-                                    fontSize = 17.sp
+                                    fontSize = 17.sp,
+                                    modifier = Modifier.semantics { heading() }
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
@@ -552,7 +649,12 @@ fun HomeScreen(
                                 playCount = topTrack.playCount,
                                 onClick = { viewModel.playTrack(domainTrack, allTopTracksDomain) },
                                 onDownloadClick = { viewModel.downloadTrack(domainTrack) },
-                                onMenuClick = { /* Track context menu */ },
+                                onDeleteDownload = { viewModel.deleteDownloadedTrack(domainTrack) },
+                                onToggleFavorite = { viewModel.toggleFavorite(domainTrack) },
+                                onAddToPlaylist = {
+                                    selectedTrackForPlaylist = domainTrack
+                                    showAddToPlaylistSheet = true
+                                },
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 1.dp)
                             )
                             // Subtle divider between list items
@@ -623,6 +725,62 @@ fun HomeScreen(
                 }
             )
         }
+
+        // Add to Playlist Bottom Sheet
+        if (showAddToPlaylistSheet && selectedTrackForPlaylist != null) {
+            val addSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            AddToPlaylistSheet(
+                track = selectedTrackForPlaylist,
+                playlists = playlists,
+                onSelectPlaylist = { targetPlaylist ->
+                    selectedTrackForPlaylist?.let { tr ->
+                        viewModel.addTrackToPlaylist(targetPlaylist, tr) { success ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    if (success) "Added to ${targetPlaylist.title}" else "Failed to add to playlist"
+                                )
+                            }
+                        }
+                    }
+                    showAddToPlaylistSheet = false
+                    selectedTrackForPlaylist = null
+                },
+                onCreateNewPlaylist = {
+                    showAddToPlaylistSheet = false
+                    showCreateDialogFromSheet = true
+                },
+                onDismiss = {
+                    showAddToPlaylistSheet = false
+                    selectedTrackForPlaylist = null
+                },
+                sheetState = addSheetState
+            )
+        }
+
+        // Create New Playlist Dialog from AddToPlaylistSheet
+        if (showCreateDialogFromSheet) {
+            CreatePlaylistDialog(
+                onDismiss = {
+                    showCreateDialogFromSheet = false
+                    selectedTrackForPlaylist = null
+                },
+                onCreate = { title, description, isPublic ->
+                    showCreateDialogFromSheet = false
+                    viewModel.createPlaylist(title, description, isPublic) { newPlaylist ->
+                        selectedTrackForPlaylist?.let { tr ->
+                            viewModel.addTrackToPlaylist(newPlaylist, tr) { success ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        if (success) "Added to ${newPlaylist.title}" else "Failed to add to playlist"
+                                    )
+                                }
+                            }
+                            selectedTrackForPlaylist = null
+                        }
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -637,63 +795,56 @@ private fun ActionNavCard(
     val colors = SangitaThemeColors.current
     Card(
         modifier = modifier
-            .height(64.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+            .height(72.dp)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open $title",
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = colors.card),
         border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f, fill = false)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(colors.elevated),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(colors.elevated)
-                        .border(1.dp, colors.border, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (painter != null) {
-                        Icon(
-                            painter = painter,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    } else if (icon != null) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                if (painter != null) {
+                    Icon(
+                        painter = painter,
+                        contentDescription = null,
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                } else if (icon != null) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 15.sp
-                )
             }
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = colors.textMuted,
-                modifier = Modifier.size(16.dp)
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -738,7 +889,7 @@ private fun MetricOverviewCard(
     val colors = SangitaThemeColors.current
     Card(
         modifier = modifier.height(98.dp),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = colors.card),
         border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
     ) {
@@ -750,25 +901,24 @@ private fun MetricOverviewCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(30.dp)
+                    .size(28.dp)
                     .clip(CircleShape)
-                    .background(colors.elevated)
-                    .border(1.dp, colors.border, CircleShape),
+                    .background(colors.elevated),
                 contentAlignment = Alignment.Center
             ) {
                 if (painter != null) {
                     Icon(
                         painter = painter,
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        tint = colors.textSecondary,
+                        modifier = Modifier.size(15.dp)
                     )
                 } else if (icon != null) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        tint = colors.textSecondary,
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
@@ -776,12 +926,14 @@ private fun MetricOverviewCard(
             Column {
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFeatureSettings = "tnum"
+                    ),
                     fontWeight = FontWeight.Bold,
                     color = colors.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontSize = 17.sp
+                    fontSize = 16.sp
                 )
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
@@ -824,6 +976,233 @@ private fun MetricOverviewCard(
     painter = null,
     icon = icon
 )
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun RecentlyPlayedCard(
+    track: Track,
+    serverUrl: String,
+    token: String?,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    onDownloadClick: () -> Unit = {},
+    onDeleteDownload: (() -> Unit)? = null,
+    onToggleFavorite: (() -> Unit)? = null,
+    onAddToPlaylist: (() -> Unit)? = null
+) {
+    val colors = SangitaThemeColors.current
+    val context = LocalContext.current
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    val coverModel = rememberCoverModel(track.id, track.localFilePath, serverUrl, token, track.isDownloaded)
+    val imageRequest = remember(coverModel) {
+        ImageRequest.Builder(context)
+            .data(coverModel)
+            .size(256, 256)
+            .crossfade(false)
+            .build()
+    }
+
+    Card(
+        modifier = Modifier
+            .width(136.dp)
+            .combinedClickable(
+                role = Role.Button,
+                onClickLabel = "Play ${track.title}",
+                onClick = onClick,
+                onLongClick = { menuExpanded = true }
+            )
+            .semantics {
+                if (isPlaying) {
+                    stateDescription = "Currently playing"
+                }
+            },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.card),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isPlaying) colors.accent else colors.border
+        )
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.elevated),
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = imageRequest,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                if (isPlaying) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.40f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = "Playing",
+                            tint = colors.accent,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+                // Download badge on top-left if downloaded
+                if (track.isDownloaded) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .size(20.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Downloaded offline",
+                            tint = colors.accent,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+
+                // 3-dots button and context menu in top-right
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                ) {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "More options for ${track.title}",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                        modifier = Modifier.background(colors.card)
+                    ) {
+                        if (onToggleFavorite != null) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (track.isFavorite) "Remove from favorites" else "Add to favorites",
+                                        color = colors.textPrimary
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = null,
+                                        tint = if (track.isFavorite) colors.accent else colors.textPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onToggleFavorite()
+                                }
+                            )
+                        }
+                        if (track.isDownloaded) {
+                            if (onDeleteDownload != null) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text("Delete download", color = colors.textPrimary)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = null,
+                                            tint = colors.textMuted,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onDeleteDownload()
+                                    }
+                                )
+                            }
+                        } else {
+                            DropdownMenuItem(
+                                text = {
+                                    Text("Download track", color = colors.textPrimary)
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        tint = colors.accent,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDownloadClick()
+                                }
+                            )
+                        }
+                        if (onAddToPlaylist != null) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text("Add to playlist", color = colors.textPrimary)
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.MusicNote,
+                                        contentDescription = null,
+                                        tint = colors.textPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onAddToPlaylist()
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = track.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isPlaying) colors.accent else colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 13.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = track.artist.ifBlank { "Unknown Artist" },
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.textSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 11.sp
+            )
+        }
+    }
+}
 
 fun formatListeningTime(seconds: Long): String {
     val hours = seconds / 3600

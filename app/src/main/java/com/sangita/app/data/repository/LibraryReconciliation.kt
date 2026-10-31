@@ -32,14 +32,21 @@ data class PlaylistReconciliationPlan(
  * Reconciles remote playlists with local Room database playlists:
  * 1. Match by serverId == remote.id.
  * 2. If serverId is null, match by title ONLY when title is unambiguous and kind is not FAVORITES.
- * 3. Preserve local playlists that have pending local edits (syncState != SYNCED).
- * 4. Never delete local-only playlists or favorites.
- * 5. Safely mark server-synced playlists deleted remotely for removal.
+ * 3. Only upsert playlists into the local Room database under accountKey if they are:
+ *    - User-owned (owner == currentUsername or kind == "PERSONAL"), OR
+ *    - User favorites (kind == "FAVORITES"), OR
+ *    - Explicitly saved (isSaved == true or in savedPlaylistIds).
+ *    Do NOT insert un-saved folder playlists (isFolderPlaylist == true && !isSaved) into Room.
+ * 4. Preserve local playlists that have pending local edits (syncState != SYNCED).
+ * 5. Never delete local-only playlists or favorites.
+ * 6. Safely mark server-synced playlists deleted remotely (or unsaved folder playlists) for removal.
  */
 fun reconcilePlaylists(
     localPlaylists: List<PlaylistEntity>,
     remotePlaylists: List<PlaylistDto>,
-    accountKey: String = "default_account"
+    accountKey: String = "default_account",
+    currentUsername: String? = null,
+    savedPlaylistIds: Set<String> = emptySet()
 ): PlaylistReconciliationPlan {
     val toUpsert = mutableListOf<PlaylistEntity>()
     val toDeleteKeys = mutableListOf<String>()
@@ -48,6 +55,27 @@ fun reconcilePlaylists(
     val matchedLocalKeys = mutableSetOf<String>()
     val matchedRemoteIds = mutableSetOf<String>()
 
+    fun isEligibleForPersonalLibrary(remote: PlaylistDto, local: PlaylistEntity? = null): Boolean {
+        val isExplicitlySaved = remote.isSaved ||
+            savedPlaylistIds.contains(remote.id) ||
+            (local?.serverId != null && savedPlaylistIds.contains(local.serverId))
+        if (isExplicitlySaved) return true
+
+        val isUserFavorites = remote.title.equals("Favorites", ignoreCase = true) ||
+            local?.kind == PlaylistKind.FAVORITES.name
+        if (isUserFavorites) return true
+
+        val isOwner = !currentUsername.isNullOrBlank() && remote.owner != null && remote.owner.equals(currentUsername, ignoreCase = true)
+        if (isOwner) return true
+
+        // Non-folder playlists default to personal playlists
+        if (!remote.isFolderPlaylist && (remote.owner.isNullOrBlank() || (!currentUsername.isNullOrBlank() && remote.owner.equals(currentUsername, ignoreCase = true)))) {
+            return true
+        }
+
+        return false
+    }
+
     // 1. Match by serverId == remote.id
     val localByServerId = localPlaylists.filter { !it.serverId.isNullOrBlank() }.associateBy { it.serverId!! }
     for (remote in remotePlaylists) {
@@ -55,6 +83,17 @@ fun reconcilePlaylists(
         if (local != null) {
             matchedLocalKeys.add(local.localKey)
             matchedRemoteIds.add(remote.id)
+
+            if (!isEligibleForPersonalLibrary(remote, local)) {
+                // Un-saved folder playlist or un-saved remote: do not keep in personal library
+                if (local.syncState != PlaylistSyncState.SYNCED.name) {
+                    toUpsert.add(local)
+                } else {
+                    toDeleteKeys.add(local.localKey)
+                }
+                continue
+            }
+
             remoteIdToLocalKey[remote.id] = local.localKey
 
             if (local.syncState != PlaylistSyncState.SYNCED.name) {
@@ -94,6 +133,16 @@ fun reconcilePlaylists(
             val remote = remainingRemotes.first { it.title == title }
             matchedLocalKeys.add(candidate.localKey)
             matchedRemoteIds.add(remote.id)
+
+            if (!isEligibleForPersonalLibrary(remote, candidate)) {
+                if (candidate.syncState != PlaylistSyncState.SYNCED.name) {
+                    toUpsert.add(candidate)
+                } else {
+                    toDeleteKeys.add(candidate.localKey)
+                }
+                continue
+            }
+
             remoteIdToLocalKey[remote.id] = candidate.localKey
 
             if (candidate.syncState != PlaylistSyncState.SYNCED.name) {
@@ -118,6 +167,11 @@ fun reconcilePlaylists(
     // 3. New remote playlists (remotes not matched by serverId or unambiguous title)
     val newRemotes = remainingRemotes.filter { it.id !in matchedRemoteIds }
     for (remote in newRemotes) {
+        if (!isEligibleForPersonalLibrary(remote)) {
+            // Un-saved folder playlist: do NOT insert into user's personal Room playlists table
+            continue
+        }
+
         val newLocalKey = UUID.randomUUID().toString()
         remoteIdToLocalKey[remote.id] = newLocalKey
         toUpsert.add(
@@ -143,7 +197,15 @@ fun reconcilePlaylists(
     // 4. Remaining unmatched locals
     val unhandledLocals = remainingLocals.filter { it.localKey !in matchedLocalKeys }
     for (local in unhandledLocals) {
+        val isFolder = local.kind == PlaylistKind.FOLDER.name
+        val isSaved = savedPlaylistIds.contains(local.localKey) || (local.serverId != null && savedPlaylistIds.contains(local.serverId))
+        val isOwner = !currentUsername.isNullOrBlank() && local.owner != null && local.owner.equals(currentUsername, ignoreCase = true)
+
         when {
+            // Unsaved folder playlist previously synced -> remove from personal Room playlists
+            isFolder && !isSaved && !isOwner && local.syncState == PlaylistSyncState.SYNCED.name -> {
+                toDeleteKeys.add(local.localKey)
+            }
             // Preserve local playlists that have pending local edits (syncState != SYNCED)
             local.syncState != PlaylistSyncState.SYNCED.name -> {
                 toUpsert.add(local)

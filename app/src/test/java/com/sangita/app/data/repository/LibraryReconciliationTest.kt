@@ -269,4 +269,114 @@ class LibraryReconciliationTest {
         assertEquals("stream_only.mp3", safe.first().id)
         assertFalse(safe.any { it.isDownloaded })
     }
+
+    @Test
+    fun `reconcilePlaylists does NOT insert un-saved folder playlists into personal Room playlists table`() {
+        val remoteFolder = PlaylistDto(
+            id = "folder-1",
+            title = "Soundtracks",
+            isFolderPlaylist = true,
+            isSaved = false,
+            owner = "system"
+        )
+
+        val plan = reconcilePlaylists(
+            localPlaylists = emptyList(),
+            remotePlaylists = listOf(remoteFolder),
+            accountKey = "srv|testuser",
+            currentUsername = "testuser",
+            savedPlaylistIds = emptySet()
+        )
+
+        assertTrue("Unsaved folder playlist must not be inserted into Room", plan.toUpsert.isEmpty())
+        assertFalse("Unsaved folder playlist must not have local key mapped for track fetching", plan.remoteIdToLocalKey.containsKey("folder-1"))
+    }
+
+    @Test
+    fun `reconcilePlaylists inserts explicitly saved folder playlists into personal Room playlists table`() {
+        // Saved via isSaved = true
+        val remoteSaved1 = PlaylistDto(
+            id = "folder-saved-1",
+            title = "Rock Classics",
+            isFolderPlaylist = true,
+            isSaved = true,
+            owner = "system"
+        )
+        // Saved via savedPlaylistIds set
+        val remoteSaved2 = PlaylistDto(
+            id = "folder-saved-2",
+            title = "Jazz Vibes",
+            isFolderPlaylist = true,
+            isSaved = false,
+            owner = "system"
+        )
+
+        val plan = reconcilePlaylists(
+            localPlaylists = emptyList(),
+            remotePlaylists = listOf(remoteSaved1, remoteSaved2),
+            accountKey = "srv|testuser",
+            currentUsername = "testuser",
+            savedPlaylistIds = setOf("folder-saved-2")
+        )
+
+        assertEquals(2, plan.toUpsert.size)
+        assertTrue(plan.toUpsert.any { it.serverId == "folder-saved-1" })
+        assertTrue(plan.toUpsert.any { it.serverId == "folder-saved-2" })
+        assertTrue(plan.remoteIdToLocalKey.containsKey("folder-saved-1"))
+        assertTrue(plan.remoteIdToLocalKey.containsKey("folder-saved-2"))
+    }
+
+    @Test
+    fun `reconcilePlaylists inserts user-owned folder playlists into personal Room playlists table`() {
+        val remoteUserOwnedFolder = PlaylistDto(
+            id = "folder-user-owned",
+            title = "My Audio Folder",
+            isFolderPlaylist = true,
+            isSaved = false,
+            owner = "testuser"
+        )
+
+        val plan = reconcilePlaylists(
+            localPlaylists = emptyList(),
+            remotePlaylists = listOf(remoteUserOwnedFolder),
+            accountKey = "srv|testuser",
+            currentUsername = "testuser",
+            savedPlaylistIds = emptySet()
+        )
+
+        assertEquals(1, plan.toUpsert.size)
+        assertEquals("folder-user-owned", plan.toUpsert.first().serverId)
+        assertTrue(plan.remoteIdToLocalKey.containsKey("folder-user-owned"))
+    }
+
+    @Test
+    fun `reconcilePlaylists removes previously synced un-saved folder playlists from personal Room playlists table`() {
+        val localSyncedFolder = PlaylistEntity(
+            localKey = "loc-old-folder",
+            serverId = "folder-to-remove",
+            title = "Unsaved Folder",
+            kind = PlaylistKind.FOLDER.name,
+            owner = "system",
+            syncState = PlaylistSyncState.SYNCED.name
+        )
+        val remoteUnsavedFolder = PlaylistDto(
+            id = "folder-to-remove",
+            title = "Unsaved Folder",
+            isFolderPlaylist = true,
+            isSaved = false,
+            owner = "system"
+        )
+
+        val plan = reconcilePlaylists(
+            localPlaylists = listOf(localSyncedFolder),
+            remotePlaylists = listOf(remoteUnsavedFolder),
+            accountKey = "srv|testuser",
+            currentUsername = "testuser",
+            savedPlaylistIds = emptySet()
+        )
+
+        assertTrue("Unsaved folder playlist must not be in toUpsert", plan.toUpsert.isEmpty())
+        assertEquals(listOf("loc-old-folder"), plan.toDeleteKeys)
+        assertFalse(plan.remoteIdToLocalKey.containsKey("folder-to-remove"))
+    }
 }

@@ -23,6 +23,7 @@ import com.sangita.app.data.remote.dto.ArtistDto
 import com.sangita.app.data.remote.dto.CatalogSourceDto
 import com.sangita.app.data.remote.dto.PlaylistDetailDto
 import com.sangita.app.data.remote.dto.PlaylistDto
+import com.sangita.app.data.remote.dto.SaveTrackRequest
 import com.sangita.app.data.remote.dto.SetFavoriteRequest
 import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Playlist
@@ -101,12 +102,18 @@ class MusicRepositoryImpl(
     // In-memory StateFlows for discovery UI
     private val _catalogSources = MutableStateFlow<List<CatalogSourceDto>>(emptyList())
     private val _artists = MutableStateFlow<List<ArtistDto>>(emptyList())
+    private val _savedArtists = MutableStateFlow<List<ArtistDto>>(emptyList())
+    private val _savedTracks = MutableStateFlow<List<Track>>(emptyList())
 
     init {
         externalScope.launch {
             var previousAccountKey = userPreferences.getAccountKey()
             userPreferences.observeAccountKey().collect { currentAccountKey ->
                 if (currentAccountKey != previousAccountKey) {
+                    _catalogSources.value = emptyList()
+                    _artists.value = emptyList()
+                    _savedArtists.value = emptyList()
+                    _savedTracks.value = emptyList()
                     try {
                         favoriteDao.clearAll()
                         trackDao.clearFavoriteStatuses()
@@ -129,6 +136,8 @@ class MusicRepositoryImpl(
     override fun clearMemoryCache() {
         _catalogSources.value = emptyList()
         _artists.value = emptyList()
+        _savedArtists.value = emptyList()
+        _savedTracks.value = emptyList()
         externalScope.launch {
             try {
                 favoriteDao.clearAll()
@@ -955,6 +964,129 @@ class MusicRepositoryImpl(
         return userPreferences.observeSavedPlaylistIds()
     }
 
+    override fun observeSavedArtists(): Flow<List<ArtistDto>> = _savedArtists.asStateFlow()
+
+    override suspend fun getSavedArtists(): Result<List<ArtistDto>> = withContext(Dispatchers.IO) {
+        try {
+            val requestAccount = userPreferences.getAccountKey()
+            val api = networkClient.createApiService()
+            val resp = api.getSavedArtists()
+            if (resp.isSuccessful && resp.body() != null) {
+                if (requestAccount != userPreferences.getAccountKey()) return@withContext Result.failure(IllegalStateException("Account changed"))
+                _savedArtists.value = resp.body()!!.artists
+                Result.success(resp.body()!!.artists)
+            } else {
+                Result.failure(Exception("Failed to get saved artists: HTTP ${resp.code()}"))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun saveArtist(artistId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val api = networkClient.createApiService()
+            val resp = api.saveArtist(artistId)
+            if (resp.isSuccessful) {
+                getSavedArtists()
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to save artist: HTTP ${resp.code()}"))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun removeArtist(artistId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val api = networkClient.createApiService()
+            val resp = api.removeArtist(artistId)
+            if (resp.isSuccessful) {
+                _savedArtists.value = _savedArtists.value.filter { it.id != artistId }
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to remove artist: HTTP ${resp.code()}"))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override fun observeSavedTracks(): Flow<List<Track>> = _savedTracks.asStateFlow()
+
+    override suspend fun getSavedTracks(): Result<List<Track>> = withContext(Dispatchers.IO) {
+        try {
+            val requestAccount = userPreferences.getAccountKey()
+            val api = networkClient.createApiService()
+            val resp = api.getSavedTracks()
+            if (resp.isSuccessful && resp.body() != null) {
+                val list = resp.body()!!.tracks.map { pt ->
+                    val (fallbackTitle, fallbackArtist) = parseTrackMetadata(pt.trackPath)
+                    Track(
+                        id = pt.trackPath,
+                        playlist = "Library",
+                        title = pt.title.ifBlank { fallbackTitle },
+                        artist = pt.artist.ifBlank { fallbackArtist },
+                        album = "",
+                        durationSeconds = pt.duration,
+                        remoteUrl = "${userPreferences.getServerUrl()}/api/stream/${pt.trackPath}",
+                        isAvailable = pt.isAvailable
+                    )
+                }
+                if (requestAccount != userPreferences.getAccountKey()) return@withContext Result.failure(IllegalStateException("Account changed"))
+                _savedTracks.value = list
+                Result.success(list)
+            } else {
+                Result.failure(Exception("Failed to get saved tracks: HTTP ${resp.code()}"))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun saveTrack(trackPath: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val api = networkClient.createApiService()
+            val resp = api.saveTrack(SaveTrackRequest(trackPath))
+            if (resp.isSuccessful) {
+                getSavedTracks()
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to save track: HTTP ${resp.code()}"))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun removeTrack(trackPath: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val api = networkClient.createApiService()
+            val resp = api.removeTrack(trackPath)
+            if (resp.isSuccessful) {
+                _savedTracks.value = _savedTracks.value.filter { it.id != trackPath }
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to remove track: HTTP ${resp.code()}"))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun addArtistCollectionToPlaylist(
         artistId: String,
         targetPlaylistId: String?,
@@ -1287,14 +1419,12 @@ class MusicRepositoryImpl(
                     if (response.isSuccessful) {
                         syncQueueDao.deleteAction(queueActionId)
                     } else if (response.code() == 409) {
-                        if (entity != null) {
-                            playlistDao.insertOrReplace(
-                                entity.copy(
-                                    syncState = PlaylistSyncState.CONFLICT.name,
-                                    lastSyncedAt = System.currentTimeMillis()
-                                )
+                        playlistDao.insertOrReplace(
+                            entity.copy(
+                                syncState = PlaylistSyncState.CONFLICT.name,
+                                lastSyncedAt = System.currentTimeMillis()
                             )
-                        }
+                        )
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -1492,14 +1622,21 @@ class MusicRepositoryImpl(
                 } catch (_: Exception) {}
             }
 
+            val currentUsername = userPreferences.getUsername()
+            val currentRole = userPreferences.getRole()
+            val savedPlaylistIds = userPreferences.getSavedPlaylistIds()
+
             if (accountKey != "default_account" && !userPreferences.isInitialDefaultAccountMigrated()) {
                 migrateDefaultAccountPlaylistsInternal(accountKey, remotePlaylistsDto)
             }
             val localPlaylists = playlistDao.getAllPlaylists(accountKey)
-            val plan = reconcilePlaylists(localPlaylists, remotePlaylistsDto, accountKey = accountKey)
-
-            val currentUsername = userPreferences.getUsername()
-            val currentRole = userPreferences.getRole()
+            val plan = reconcilePlaylists(
+                localPlaylists = localPlaylists,
+                remotePlaylists = remotePlaylistsDto,
+                accountKey = accountKey,
+                currentUsername = currentUsername,
+                savedPlaylistIds = savedPlaylistIds
+            )
 
             // Fetch playlist detail for each remote playlist
             // Never delete local playlists or downloaded tracks during network failures, 500s, or partial fetches!
@@ -1508,6 +1645,13 @@ class MusicRepositoryImpl(
             val updatedUpserts = plan.toUpsert.toMutableList()
 
             for (remote in remotePlaylistsDto) {
+                val isSaved = remote.isSaved || savedPlaylistIds.contains(remote.id)
+                val isUserOwned = !currentUsername.isNullOrBlank() && remote.owner != null && remote.owner.equals(currentUsername, ignoreCase = true)
+                // For un-saved folder playlists, do NOT fetch tracks or insert cross-references into the personal library.
+                if (remote.isFolderPlaylist && !isSaved && !isUserOwned) {
+                    continue
+                }
+
                 val localKey = plan.remoteIdToLocalKey[remote.id] ?: continue
                 if (localKey in pendingPlaylists) {
                     continue
@@ -1615,6 +1759,33 @@ class MusicRepositoryImpl(
                     trackDao.insertOrReplaceAll(finalTracks)
                 }
             }
+
+            // Sync saved artists and saved tracks
+            try {
+                val savedArtistsResp = api.getSavedArtists()
+                if (savedArtistsResp.isSuccessful && savedArtistsResp.body() != null) {
+                    _savedArtists.value = savedArtistsResp.body()!!.artists
+                }
+            } catch (_: Exception) {}
+
+            try {
+                val savedTracksResp = api.getSavedTracks()
+                if (savedTracksResp.isSuccessful && savedTracksResp.body() != null) {
+                    _savedTracks.value = savedTracksResp.body()!!.tracks.map { pt ->
+                        val (fallbackTitle, fallbackArtist) = parseTrackMetadata(pt.trackPath)
+                        Track(
+                            id = pt.trackPath,
+                            playlist = "Library",
+                            title = pt.title.ifBlank { fallbackTitle },
+                            artist = pt.artist.ifBlank { fallbackArtist },
+                            album = "",
+                            durationSeconds = pt.duration,
+                            remoteUrl = "${userPreferences.getServerUrl()}/api/stream/${pt.trackPath}",
+                            isAvailable = pt.isAvailable
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
 
             Result.success(Unit)
         } catch (e: CancellationException) {

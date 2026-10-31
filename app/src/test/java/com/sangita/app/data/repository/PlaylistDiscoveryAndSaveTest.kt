@@ -17,10 +17,14 @@ import com.sangita.app.data.remote.api.NetworkClient
 import com.sangita.app.data.remote.api.SangitaApiService
 import com.sangita.app.data.remote.dto.AddArtistCollectionRequest
 import com.sangita.app.data.remote.dto.ArtistAddCollectionResponseDto
+import com.sangita.app.data.remote.dto.ArtistDto
+import com.sangita.app.data.remote.dto.LibraryArtistsResponseDto
+import com.sangita.app.data.remote.dto.LibraryTracksResponseDto
 import com.sangita.app.data.remote.dto.PlaylistDetailDto
 import com.sangita.app.data.remote.dto.PlaylistDto
 import com.sangita.app.data.remote.dto.PlaylistTrackDto
 import com.sangita.app.data.remote.dto.PlaylistsResponseDto
+import com.sangita.app.data.remote.dto.SaveTrackRequest
 import com.sangita.app.domain.model.PlaylistKind
 import com.sangita.app.domain.model.PlaylistSyncState
 import com.sangita.app.domain.model.SyncActionType
@@ -538,5 +542,81 @@ class PlaylistDiscoveryAndSaveTest {
         assertEquals("Local rename", insertedEntity?.title)
         assertEquals("Local description", insertedEntity?.description)
         assertEquals("public", insertedEntity?.visibility)
+    }
+
+    @Test
+    fun `getSavedArtists fetches saved artists list from api`() = runTest {
+        val artists = listOf(
+            ArtistDto(id = "art-1", name = "Pink Floyd", trackCount = 20)
+        )
+        coEvery { apiService.getSavedArtists() } returns Response.success(LibraryArtistsResponseDto(artists))
+
+        val result = repository.getSavedArtists()
+        assertTrue(result.isSuccess)
+        assertEquals(1, result.getOrNull()?.size)
+        assertEquals("Pink Floyd", result.getOrNull()?.first()?.name)
+    }
+
+    @Test
+    fun `saveArtist and removeArtist succeed via api`() = runTest {
+        coEvery { apiService.saveArtist("art-2") } returns Response.success(mapOf("status" to "saved"))
+        coEvery { apiService.getSavedArtists() } returns Response.success(LibraryArtistsResponseDto(emptyList()))
+
+        val saveRes = repository.saveArtist("art-2")
+        assertTrue(saveRes.isSuccess)
+
+        coEvery { apiService.removeArtist("art-2") } returns Response.success(mapOf("status" to "removed"))
+        val removeRes = repository.removeArtist("art-2")
+        assertTrue(removeRes.isSuccess)
+    }
+
+    @Test
+    fun `getSavedTracks fetches saved tracks list from api`() = runTest {
+        val tracks = listOf(
+            PlaylistTrackDto(trackPath = "Rock/Time.mp3", title = "Time", artist = "Pink Floyd", isAvailable = true)
+        )
+        coEvery { apiService.getSavedTracks() } returns Response.success(LibraryTracksResponseDto(tracks))
+
+        val result = repository.getSavedTracks()
+        assertTrue(result.isSuccess)
+        assertEquals(1, result.getOrNull()?.size)
+        assertEquals("Time", result.getOrNull()?.first()?.title)
+    }
+
+    @Test
+    fun `saveTrack and removeTrack succeed via api`() = runTest {
+        coEvery { apiService.saveTrack(SaveTrackRequest("Rock/Time.mp3")) } returns Response.success(com.sangita.app.data.remote.dto.SaveActionResponseDto(status = "saved"))
+        coEvery { apiService.getSavedTracks() } returns Response.success(LibraryTracksResponseDto(emptyList()))
+
+        val saveRes = repository.saveTrack("Rock/Time.mp3")
+        assertTrue(saveRes.isSuccess)
+
+        coEvery { apiService.removeTrack("Rock/Time.mp3") } returns Response.success(mapOf("status" to "removed"))
+        val removeRes = repository.removeTrack("Rock/Time.mp3")
+        assertTrue(removeRes.isSuccess)
+    }
+
+    @Test
+    fun `syncLibrary does NOT fetch tracks or insert cross-references for un-saved folder playlists`() = runTest {
+        val unsavedFolder = PlaylistDto(
+            id = "folder_soundtracks",
+            title = "Soundtracks",
+            isFolderPlaylist = true,
+            isSaved = false,
+            owner = "system",
+            trackCount = 10
+        )
+        coEvery { apiService.getPlaylists(any()) } returns Response.success(PlaylistsResponseDto(listOf(unsavedFolder)))
+        coEvery { apiService.getDurations() } returns Response.success(emptyMap())
+        coEvery { apiService.getFavorites() } returns Response.success(emptyList())
+        coEvery { playlistDao.getAllPlaylists(any()) } returns emptyList()
+
+        val result = repository.syncLibrary()
+        assertTrue(result.isSuccess)
+
+        // Verify getPlaylistDetail was NEVER called for the un-saved folder playlist
+        coVerify(exactly = 0) { apiService.getPlaylistDetail("folder_soundtracks") }
+        // Verify cross-refs were never inserted
+        coVerify(exactly = 0) { playlistDao.insertCrossRefs(any()) }
     }
 }

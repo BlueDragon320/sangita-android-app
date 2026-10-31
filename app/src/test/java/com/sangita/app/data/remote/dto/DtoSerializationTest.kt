@@ -610,4 +610,80 @@ class DtoSerializationTest {
         assertEquals("Forbidden - Only owner or admin can delete this playlist", err.error)
         assertNull(err.status)
     }
+
+    // ==========================================
+    // 9. Library DTOs (Saved Artists & Tracks)
+    // ==========================================
+
+    @Test
+    fun parseLibraryArtistsResponseDto() {
+        val jsonString = """
+            {
+                "artists": [
+                    {
+                        "id": "art-1",
+                        "name": "Daft Punk",
+                        "bio": "Electronic music duo",
+                        "image_url": "/api/cover/DaftPunk/Discovery/01.mp3",
+                        "track_count": 14
+                    }
+                ]
+            }
+        """.trimIndent()
+
+        val resp = json.decodeFromString<LibraryArtistsResponseDto>(jsonString)
+        assertEquals(1, resp.artists.size)
+        assertEquals("art-1", resp.artists[0].id)
+        assertEquals("Daft Punk", resp.artists[0].name)
+        assertEquals(14, resp.artists[0].trackCount)
+    }
+
+    @Test
+    fun parseLibraryTracksResponseDto() {
+        val jsonString = """
+            {
+                "tracks": [
+                    {
+                        "track_path": "Electronic/One More Time.mp3",
+                        "title": "One More Time",
+                        "artist": "Daft Punk",
+                        "duration": 320.5,
+                        "is_available": true
+                    }
+                ]
+            }
+        """.trimIndent()
+
+        val resp = json.decodeFromString<LibraryTracksResponseDto>(jsonString)
+        assertEquals(1, resp.tracks.size)
+        assertEquals("Electronic/One More Time.mp3", resp.tracks[0].trackPath)
+        assertEquals("One More Time", resp.tracks[0].title)
+        assertEquals("Daft Punk", resp.tracks[0].artist)
+        assertEquals(320.5, resp.tracks[0].duration)
+        assertTrue(resp.tracks[0].isAvailable)
+    }
+
+    @Test
+    fun saveTrackRequest_serialization() {
+        val req = SaveTrackRequest(trackPath = "Pop/Song.mp3")
+        val encoded = json.encodeToString(req)
+        assertTrue(encoded.contains(""""track_path":"Pop/Song.mp3""""))
+
+        val decoded = json.decodeFromString<SaveTrackRequest>(encoded)
+        assertEquals("Pop/Song.mp3", decoded.trackPath)
+    }
+
+    @Test
+    fun saveActionResponseDto_parsing() {
+        val jsonString = """
+            {
+                "status": "saved",
+                "track_path": "Rock/Bohemian.mp3"
+            }
+        """.trimIndent()
+
+        val resp = json.decodeFromString<SaveActionResponseDto>(jsonString)
+        assertEquals("saved", resp.status)
+        assertEquals("Rock/Bohemian.mp3", resp.trackPath)
+    }
 }

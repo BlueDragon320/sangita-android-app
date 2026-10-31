@@ -89,7 +89,6 @@ import com.sangita.app.ui.components.SystemBarsHelper
 import com.sangita.app.ui.components.findActivity
 import com.sangita.app.ui.components.formatSeconds
 import com.sangita.app.ui.theme.DarkBorder
-import com.sangita.app.ui.theme.Emerald500
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -160,7 +159,7 @@ fun LyricsOverlay(
     // Auto-scroll to center on the active line
     val lines = lyricsData?.lines ?: emptyList()
     LaunchedEffect(activeIndex) {
-        if (activeIndex in lines.indices) {
+        if (!listState.isScrollInProgress && activeIndex in lines.indices) {
             listState.animateScrollToItem(activeIndex)
         }
     }
@@ -221,7 +220,7 @@ fun LyricsOverlay(
                             Icon(
                                 imageVector = Icons.Default.MusicNote,
                                 contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.4f),
+                                tint = palette.inactiveTextColor.copy(alpha = 0.5f),
                                 modifier = Modifier.size(54.dp)
                             )
                         }
@@ -229,13 +228,13 @@ fun LyricsOverlay(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Track Title (bold, 18sp, white, truncated)
+                    // Track Title (bold, 18sp, truncated)
                     Text(
                         text = track?.title ?: "No track playing",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = Color.White,
+                        color = palette.activeTextColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center
@@ -243,12 +242,12 @@ fun LyricsOverlay(
 
                     Spacer(modifier = Modifier.height(2.dp))
 
-                    // Artist Name (14sp, white.copy(alpha=0.7f))
+                    // Artist Name (14sp)
                     Text(
                         text = track?.artist ?: "",
                         style = MaterialTheme.typography.bodyMedium,
                         fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = palette.inactiveTextColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center
@@ -263,7 +262,7 @@ fun LyricsOverlay(
                         text = "${formatSeconds(posSec)} / ${formatSeconds(durSec)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.65f),
+                        color = palette.inactiveTextColor,
                         textAlign = TextAlign.Center
                     )
 
@@ -283,7 +282,7 @@ fun LyricsOverlay(
                             Icon(
                                 imageVector = Icons.Default.SkipPrevious,
                                 contentDescription = "Previous",
-                                tint = Color.White,
+                                tint = palette.activeTextColor,
                                 modifier = Modifier.size(26.dp)
                             )
                         }
@@ -299,14 +298,14 @@ fun LyricsOverlay(
                             if (playbackState.isBuffering) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(24.dp),
-                                    color = Color.White,
+                                    color = palette.activeTextColor,
                                     strokeWidth = 2.5.dp
                                 )
                             } else {
                                 Icon(
                                     imageVector = if (playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                     contentDescription = "Toggle Play",
-                                    tint = Color.White,
+                                    tint = palette.activeTextColor,
                                     modifier = Modifier.size(32.dp)
                                 )
                             }
@@ -323,7 +322,7 @@ fun LyricsOverlay(
                             Icon(
                                 imageVector = Icons.Default.SkipNext,
                                 contentDescription = "Next",
-                                tint = Color.White,
+                                tint = palette.activeTextColor,
                                 modifier = Modifier.size(26.dp)
                             )
                         }
@@ -339,12 +338,12 @@ fun LyricsOverlay(
                     contentAlignment = Alignment.Center
                 ) {
                     if (lyricsData == null) {
-                        CircularProgressIndicator(color = Emerald500)
+                        CircularProgressIndicator(color = palette.activeTextColor)
                     } else if (lines.isEmpty() || !lyricsData!!.hasLyrics) {
                         Text(
                             text = "No Synced Lyrics Available",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.6f),
+                            color = palette.inactiveTextColor,
                             textAlign = TextAlign.Center
                         )
                     } else {
@@ -453,7 +452,7 @@ fun LyricsOverlay(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Emerald500)
+                        CircularProgressIndicator(color = palette.activeTextColor)
                     }
                 } else if (lines.isEmpty() || !lyricsData!!.hasLyrics) {
                     Box(
@@ -463,7 +462,7 @@ fun LyricsOverlay(
                         Text(
                             text = "No Synced Lyrics Available",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.6f)
+                            color = palette.inactiveTextColor
                         )
                     }
                 } else {
@@ -506,12 +505,12 @@ fun LyricsOverlay(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.55f))
+                        .background(palette.inactiveTextColor.copy(alpha = 0.15f))
                 ) {
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
                         contentDescription = "Switch Theme",
-                        tint = Color.White,
+                        tint = palette.activeTextColor,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -525,12 +524,12 @@ fun LyricsOverlay(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.55f))
+                        .background(palette.inactiveTextColor.copy(alpha = 0.15f))
                 ) {
                     Icon(
                         imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                         contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen",
-                        tint = Color.White,
+                        tint = palette.activeTextColor,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -541,12 +540,12 @@ fun LyricsOverlay(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.55f))
+                        .background(palette.inactiveTextColor.copy(alpha = 0.15f))
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = Color.White,
+                        tint = palette.activeTextColor,
                         modifier = Modifier.size(22.dp)
                     )
                 }

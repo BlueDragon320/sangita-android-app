@@ -19,6 +19,14 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 class ArtistCollectionConverterTest {
 
+    companion object {
+        private val json = Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+            coerceInputValues = true
+        }
+    }
+
     @Test
     fun `addArtistCollectionToPlaylist serializes request and deserializes response with real Retrofit and Kotlinx Serialization`() = runTest {
         var recordedRequestBody: String? = null
@@ -51,12 +59,6 @@ class ArtistCollectionConverterTest {
                     .build()
             }
             .build()
-
-        val json = Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-            coerceInputValues = true
-        }
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://sangita.test/")
@@ -91,4 +93,21 @@ class ArtistCollectionConverterTest {
         assertNotNull("Request body should have been transmitted", recordedRequestBody)
         assertTrue("Request body should contain playlist_id", recordedRequestBody!!.contains("\"playlist_id\":\"srv_pl_99\""))
     }
+    @Test
+    fun `save track accepts the server boolean favorite field`() = runTest {
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
+                .code(200).message("OK")
+                .body("{\"status\":\"saved\",\"track_path\":\"a.mp3\",\"is_favorite\":false}".toResponseBody("application/json".toMediaType()))
+                .build()
+        }.build()
+        val retrofit = Retrofit.Builder().baseUrl("https://sangita.test/").client(client)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+        val response = retrofit.create(SangitaApiService::class.java)
+            .saveTrack(com.sangita.app.data.remote.dto.SaveTrackRequest("a.mp3"))
+        assertTrue(response.isSuccessful)
+        assertEquals("a.mp3", response.body()?.trackPath)
+    }
+
 }

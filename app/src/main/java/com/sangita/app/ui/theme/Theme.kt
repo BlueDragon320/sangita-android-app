@@ -1,6 +1,7 @@
 package com.sangita.app.ui.theme
 
 import android.app.Activity
+import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -29,28 +30,32 @@ data class SangitaColors(
     val accent: Color,
     val auraBlue: Color,
     val lavender: Color,
-    val buttonBg: Color = SoftSteelBlue,
-    val buttonContent: Color = DeepNavyBlue
+    val buttonBg: Color = SteelBlueLight,
+    val buttonContent: Color = DeepNavyButtonText,
+    val warningBg: Color = SemanticWarningBg,
+    val isAmoled: Boolean = false
 )
 
 val LocalSangitaColors = staticCompositionLocalOf {
     SangitaColors(
-        background = AmbientBackground,
-        backgroundSec = AmbientBackgroundSec,
-        surface = AmbientCard,
-        elevated = AmbientElevated,
-        card = AmbientCard,
-        cardHover = AmbientElevated,
-        textPrimary = AmbientTextPrimary,
-        textSecondary = AmbientTextSecondary,
-        textMuted = AmbientTextMuted,
-        border = AmbientBorder,
+        background = GraphiteBackground,
+        backgroundSec = GraphiteCard,
+        surface = GraphiteCard,
+        elevated = GraphiteElevated,
+        card = GraphiteCard,
+        cardHover = GraphiteElevated,
+        textPrimary = GraphiteTextPrimary,
+        textSecondary = GraphiteTextSecondary,
+        textMuted = GraphiteTextMuted,
+        border = GraphiteBorder,
         borderHi = AmbientBorderHi,
-        accent = AmbientAccentBlue,
+        accent = SteelBlueLight,
         auraBlue = AmbientAuraBlue,
         lavender = AmbientLavender,
-        buttonBg = SoftSteelBlue,
-        buttonContent = DeepNavyBlue
+        buttonBg = SteelBlueLight,
+        buttonContent = DeepNavyButtonText,
+        warningBg = SemanticWarningBg,
+        isAmoled = false
     )
 }
 
@@ -60,59 +65,149 @@ object SangitaThemeColors {
         get() = LocalSangitaColors.current
 }
 
-private val AmbientDarkColorScheme = darkColorScheme(
-    primary = AmbientAccentBlue,
-    onPrimary = AmbientTextPrimary,
-    primaryContainer = AmbientAuraBlue,
-    onPrimaryContainer = AmbientTextPrimary,
+internal val AmbientDarkColorScheme = darkColorScheme(
+    primary = SteelBlueLight,
+    onPrimary = DeepNavyButtonText,
+    primaryContainer = GraphiteElevated,
+    onPrimaryContainer = GraphiteTextPrimary,
     secondary = AmbientLavender,
-    onSecondary = AmbientBackground,
-    background = AmbientBackground,
-    onBackground = AmbientTextPrimary,
-    surface = AmbientCard,
-    onSurface = AmbientTextPrimary,
-    surfaceVariant = AmbientElevated,
-    onSurfaceVariant = AmbientTextSecondary,
-    outline = AmbientBorder,
-    error = SangitaRed
+    onSecondary = GraphiteBackground,
+    background = GraphiteBackground,
+    onBackground = GraphiteTextPrimary,
+    surface = GraphiteCard,
+    onSurface = GraphiteTextPrimary,
+    surfaceVariant = GraphiteElevated,
+    onSurfaceVariant = GraphiteTextSecondary,
+    outline = GraphiteBorder,
+    error = SemanticError
 )
 
-private val AmoledColorScheme = darkColorScheme(
-    primary = AmbientAccentBlue,
-    onPrimary = Color(0xFF000000),
-    primaryContainer = AmbientAuraBlue,
-    onPrimaryContainer = AmbientTextPrimary,
+internal val AmoledColorScheme = darkColorScheme(
+    primary = SteelBlueLight,
+    onPrimary = DeepNavyButtonText,
+    primaryContainer = AmoledElevated,
+    onPrimaryContainer = GraphiteTextPrimary,
     secondary = AmbientLavender,
-    onSecondary = Color(0xFF000000),
-    background = Color(0xFF000000),
-    onBackground = AmbientTextPrimary,
-    surface = Color(0xFF000000),
-    onSurface = AmbientTextPrimary,
-    surfaceVariant = Color(0xFF000000),
-    onSurfaceVariant = AmbientTextSecondary,
-    outline = Color(0xFF1E2330),
-    error = SangitaRed
+    onSecondary = AmoledBackground,
+    background = AmoledBackground,
+    onBackground = GraphiteTextPrimary,
+    surface = AmoledBackground,
+    onSurface = GraphiteTextPrimary,
+    surfaceVariant = AmoledElevated,
+    onSurfaceVariant = GraphiteTextSecondary,
+    outline = AmoledBorder,
+    error = SemanticError
 )
 
-private val ObsidianColorScheme = AmoledColorScheme
-private val MidnightDarkColorScheme = AmbientDarkColorScheme
+internal val ObsidianColorScheme = AmoledColorScheme
+internal val MidnightDarkColorScheme = AmbientDarkColorScheme
 
-private val LightColorScheme = lightColorScheme(
-    primary = AmbientAccentBlue,
+internal val LightColorScheme = lightColorScheme(
+    primary = SteelBluePrimary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFBAE6FD),
-    onPrimaryContainer = Color(0xFF0369A1),
-    secondary = AmbientLavender,
+    primaryContainer = LightElevated,
+    onPrimaryContainer = LightTextPrimary,
+    secondary = SteelBlueLight,
     onSecondary = Color.White,
-    background = Color(0xFFF1F5F9),
-    onBackground = Color(0xFF0F172A),
-    surface = Color.White,
-    onSurface = Color(0xFF0F172A),
-    surfaceVariant = Color(0xFFE2E8F0),
-    onSurfaceVariant = Color(0xFF475569),
-    outline = Color(0xFFCBD5E1),
-    error = Color(0xFFDC2626)
+    background = LightPageBackground,
+    onBackground = LightTextPrimary,
+    surface = LightCard,
+    onSurface = LightTextPrimary,
+    surfaceVariant = LightElevated,
+    onSurfaceVariant = LightTextSecondary,
+    outline = LightBorder,
+    error = SemanticError
 )
+
+fun getSangitaColorScheme(themeMode: String): androidx.compose.material3.ColorScheme = when (themeMode) {
+    UserPreferences.THEME_LIGHT -> LightColorScheme
+    UserPreferences.THEME_AMOLED -> AmoledColorScheme
+    UserPreferences.THEME_DARK -> AmbientDarkColorScheme
+    else -> AmbientDarkColorScheme
+}
+
+fun getSangitaColors(themeMode: String): SangitaColors = when (themeMode) {
+    UserPreferences.THEME_LIGHT -> SangitaColors(
+        background = LightPageBackground,
+        backgroundSec = LightElevated,
+        surface = LightCard,
+        elevated = LightElevated,
+        card = LightCard,
+        cardHover = LightElevated,
+        textPrimary = LightTextPrimary,
+        textSecondary = LightTextSecondary,
+        textMuted = LightTextMuted,
+        border = LightBorder,
+        borderHi = Color(0xFFD4D4D8),
+        accent = SteelBluePrimary,
+        auraBlue = AmbientAuraBlue,
+        lavender = AmbientLavender,
+        buttonBg = SteelBluePrimary,
+        buttonContent = Color.White,
+        warningBg = SemanticWarningBg,
+        isAmoled = false
+    )
+    UserPreferences.THEME_AMOLED -> SangitaColors(
+        background = AmoledBackground,
+        backgroundSec = AmoledBackground,
+        surface = AmoledBackground,
+        elevated = AmoledElevated,
+        card = AmoledCard,
+        cardHover = AmoledElevated,
+        textPrimary = GraphiteTextPrimary,
+        textSecondary = GraphiteTextSecondary,
+        textMuted = GraphiteTextMuted,
+        border = AmoledBorder,
+        borderHi = Color(0xFF252B37),
+        accent = SteelBlueLight,
+        auraBlue = AmbientAuraBlue,
+        lavender = AmbientLavender,
+        buttonBg = SteelBlueLight,
+        buttonContent = DeepNavyButtonText,
+        warningBg = SemanticWarningBg,
+        isAmoled = true
+    )
+    UserPreferences.THEME_DARK -> SangitaColors(
+        background = GraphiteBackground,
+        backgroundSec = GraphiteCard,
+        surface = GraphiteCard,
+        elevated = GraphiteElevated,
+        card = GraphiteCard,
+        cardHover = GraphiteElevated,
+        textPrimary = GraphiteTextPrimary,
+        textSecondary = GraphiteTextSecondary,
+        textMuted = GraphiteTextMuted,
+        border = GraphiteBorder,
+        borderHi = AmbientBorderHi,
+        accent = SteelBlueLight,
+        auraBlue = AmbientAuraBlue,
+        lavender = AmbientLavender,
+        buttonBg = SteelBlueLight,
+        buttonContent = DeepNavyButtonText,
+        warningBg = SemanticWarningBg,
+        isAmoled = false
+    )
+    else -> SangitaColors(
+        background = GraphiteBackground,
+        backgroundSec = GraphiteCard,
+        surface = GraphiteCard,
+        elevated = GraphiteElevated,
+        card = GraphiteCard,
+        cardHover = GraphiteElevated,
+        textPrimary = GraphiteTextPrimary,
+        textSecondary = GraphiteTextSecondary,
+        textMuted = GraphiteTextMuted,
+        border = GraphiteBorder,
+        borderHi = AmbientBorderHi,
+        accent = SteelBlueLight,
+        auraBlue = AmbientAuraBlue,
+        lavender = AmbientLavender,
+        buttonBg = SteelBlueLight,
+        buttonContent = DeepNavyButtonText,
+        warningBg = SemanticWarningBg,
+        isAmoled = false
+    )
+}
 
 @Composable
 fun SangitaTheme(
@@ -120,97 +215,23 @@ fun SangitaTheme(
     content: @Composable () -> Unit
 ) {
     val isLight = themeMode == UserPreferences.THEME_LIGHT
-    val colorScheme = when (themeMode) {
-        UserPreferences.THEME_LIGHT -> LightColorScheme
-        UserPreferences.THEME_AMOLED -> AmoledColorScheme
-        UserPreferences.THEME_DARK -> AmbientDarkColorScheme
-        else -> AmbientDarkColorScheme
-    }
-
-    val customColors = when (themeMode) {
-        UserPreferences.THEME_LIGHT -> SangitaColors(
-            background = Color(0xFFF8FAFC),
-            backgroundSec = Color(0xFFEDF2F7),
-            surface = Color(0xFFFFFFFF),
-            elevated = Color(0xFFF1F5F9),
-            card = Color(0xFFFFFFFF),
-            cardHover = Color(0xFFF1F5F9),
-            textPrimary = Color(0xFF0F172A),
-            textSecondary = Color(0xFF475569),
-            textMuted = Color(0xFF64748B),
-            border = Color(0xFFE2E8F0),
-            borderHi = Color(0xFFCBD5E1),
-            accent = AmbientAccentBlue,
-            auraBlue = AmbientAuraBlue,
-            lavender = AmbientLavender,
-            buttonBg = SoftSteelBlue,
-            buttonContent = DeepNavyBlue
-        )
-        UserPreferences.THEME_AMOLED -> SangitaColors(
-            background = Color(0xFF000000),
-            backgroundSec = Color(0xFF000000),
-            surface = Color(0xFF000000),
-            elevated = Color(0xFF000000),
-            card = Color(0xFF000000),
-            cardHover = Color(0xFF080A0F),
-            textPrimary = AmbientTextPrimary,
-            textSecondary = AmbientTextSecondary,
-            textMuted = AmbientTextMuted,
-            border = Color(0xFF1E2330),
-            borderHi = Color(0xFF2C3446),
-            accent = AmbientAccentBlue,
-            auraBlue = AmbientAuraBlue,
-            lavender = AmbientLavender,
-            buttonBg = SoftSteelBlue,
-            buttonContent = DeepNavyBlue
-        )
-        UserPreferences.THEME_DARK -> SangitaColors(
-            background = AmbientBackground,
-            backgroundSec = AmbientBackgroundSec,
-            surface = AmbientCard,
-            elevated = AmbientElevated,
-            card = AmbientCard,
-            cardHover = AmbientElevated,
-            textPrimary = AmbientTextPrimary,
-            textSecondary = AmbientTextSecondary,
-            textMuted = AmbientTextMuted,
-            border = AmbientBorder,
-            borderHi = AmbientBorderHi,
-            accent = AmbientAccentBlue,
-            auraBlue = AmbientAuraBlue,
-            lavender = AmbientLavender,
-            buttonBg = SoftSteelBlue,
-            buttonContent = DeepNavyBlue
-        )
-        else -> SangitaColors(
-            background = AmbientBackground,
-            backgroundSec = AmbientBackgroundSec,
-            surface = AmbientCard,
-            elevated = AmbientElevated,
-            card = AmbientCard,
-            cardHover = AmbientElevated,
-            textPrimary = AmbientTextPrimary,
-            textSecondary = AmbientTextSecondary,
-            textMuted = AmbientTextMuted,
-            border = AmbientBorder,
-            borderHi = AmbientBorderHi,
-            accent = AmbientAccentBlue,
-            auraBlue = AmbientAuraBlue,
-            lavender = AmbientLavender,
-            buttonBg = SoftSteelBlue,
-            buttonContent = DeepNavyBlue
-        )
-    }
+    val colorScheme = getSangitaColorScheme(themeMode)
+    val customColors = getSangitaColors(themeMode)
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            val bgArgb = customColors.background.toArgb()
-            window.statusBarColor = bgArgb
-            window.navigationBarColor = bgArgb
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = isLight
-            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = isLight
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            insetsController.isAppearanceLightStatusBars = isLight
+            insetsController.isAppearanceLightNavigationBars = isLight
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                @Suppress("DEPRECATION")
+                window.statusBarColor = customColors.background.toArgb()
+                @Suppress("DEPRECATION")
+                window.navigationBarColor = customColors.background.toArgb()
+            }
         }
     }
 

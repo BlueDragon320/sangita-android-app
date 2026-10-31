@@ -32,6 +32,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -83,25 +87,28 @@ fun MiniPlayer(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             .background(colors.background)
-            .border(1.dp, colors.border, RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
-            .clickable(onClick = onClick)
+            .border(1.dp, colors.border, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open player",
+                onClick = onClick
+            )
     ) {
-        // Subtle restrained blue progress indicator (#032F72 active progress over #66A3BF track)
         LinearProgressIndicator(
             progress = { progress },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(2.dp),
-            color = DeepNavyBlue,
-            trackColor = SoftSteelBlue
+            color = colors.accent,
+            trackColor = colors.border
         )
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Album art thumbnail
@@ -113,7 +120,7 @@ fun MiniPlayer(
             ) {
                 AsyncImage(
                     model = imageRequest,
-                    contentDescription = track.title,
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -148,7 +155,11 @@ fun MiniPlayer(
             if (onOpenDevices != null) {
                 IconButton(
                     onClick = onOpenDevices,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier
+                        .size(48.dp)
+                        .semantics {
+                            stateDescription = if (playbackState.isActiveDevice) "Playing on this device" else "Playing on remote device"
+                        }
                 ) {
                     Icon(
                         imageVector = Icons.Default.Devices,
@@ -162,7 +173,7 @@ fun MiniPlayer(
             // Previous Button
             IconButton(
                 onClick = onSkipPrevious,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipPrevious,
@@ -175,7 +186,11 @@ fun MiniPlayer(
             // Play/Pause Button
             IconButton(
                 onClick = onTogglePlayPause,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier
+                    .size(48.dp)
+                    .semantics {
+                        stateDescription = if (playbackState.isPlaying) "Playing" else "Paused"
+                    }
             ) {
                 if (playbackState.isBuffering) {
                     CircularProgressIndicator(
@@ -196,7 +211,7 @@ fun MiniPlayer(
             // Next Button
             IconButton(
                 onClick = onSkipNext,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipNext,
