@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -43,6 +44,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import com.sangita.app.data.local.storage.LocalStorageManager
@@ -110,20 +112,65 @@ fun PlayerScreen(
     var showDevicesSheet by remember { mutableStateOf(false) }
     val track = state.currentTrack
     if (track == null) {
-        LaunchedEffect(Unit) {
-            onBackClick()
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(SangitaThemeColors.current.background),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No track playing",
-                color = SangitaThemeColors.current.textSecondary,
-                style = MaterialTheme.typography.bodyLarge
-            )
+        val colors = SangitaThemeColors.current
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = colors.textPrimary
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = colors.background
+                    )
+                )
+            },
+            containerColor = colors.background
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (state.isBuffering) {
+                        CircularProgressIndicator(
+                            color = colors.accent,
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Connecting playback...",
+                            color = colors.textPrimary,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = null,
+                            tint = colors.textMuted,
+                            modifier = Modifier.size(56.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No track currently playing",
+                            color = colors.textSecondary,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
         }
         return
     }

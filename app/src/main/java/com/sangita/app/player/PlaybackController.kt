@@ -170,13 +170,28 @@ class PlaybackController(
                         activeDeviceName = null
                     )
                 }
-                if (state.isTransferHandoff && !state.trackId.isNullOrBlank()) {
-                    Log.d("PlaybackController", "Transfer handoff targeting phone: ${state.trackId} at ${state.positionMs}ms")
-                    val resolvedTrack = resolveTrack(state.trackId, state.durationMs)
+                val trackId = state.trackId
+                val isTargetingMe = !trackId.isNullOrBlank() && (state.isTransferHandoff || _playbackState.value.currentTrack?.id != trackId || mediaController?.isPlaying != true)
+                if (isTargetingMe && !trackId.isNullOrBlank()) {
+                    Log.d("PlaybackController", "Adopting playback targeting phone: $trackId at ${state.positionMs}ms (handoff=${state.isTransferHandoff})")
+                    val resolvedTrack = resolveTrack(trackId, state.durationMs)
+                    _playbackState.update {
+                        it.copy(
+                            currentTrack = resolvedTrack,
+                            isPlaying = state.isPlaying,
+                            isBuffering = true,
+                            currentPositionMs = state.positionMs,
+                            durationMs = state.durationMs,
+                            isActiveDevice = true,
+                            activeDeviceName = null
+                        )
+                    }
                     playTrack(resolvedTrack, listOf(resolvedTrack), forceLocal = true, startPositionMs = state.positionMs)
                     mediaController?.let { p ->
-                        p.playWhenReady = true
-                        p.play()
+                        p.playWhenReady = state.isPlaying
+                        if (state.isPlaying) {
+                            p.play()
+                        }
                         if (state.positionMs > 0) {
                             p.seekTo(state.positionMs)
                         }
