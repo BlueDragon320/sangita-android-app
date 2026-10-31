@@ -201,6 +201,12 @@ fun SangitaNavGraph(
                         launchSingleTop = true
                     }
                 },
+                onNavigateToPlaylist = { playlistKey ->
+                    val encoded = java.net.URLEncoder.encode(playlistKey, "UTF-8")
+                    navController.navigate(Screen.PlaylistDetail.createRoute(encoded)) {
+                        launchSingleTop = true
+                    }
+                },
                 onNavigateToDownloads = {
                     navController.navigate(Screen.Downloads.route) {
                         launchSingleTop = true

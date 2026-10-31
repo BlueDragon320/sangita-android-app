@@ -241,4 +241,56 @@ class HomeViewModelTest {
         assertEquals(listOf(testPlaylist), viewModel.playlists.value)
         assertEquals(listOf(testPlaylist), viewModel.userPlaylists.value)
     }
+
+    @Test
+    fun `refreshHome synchronizes actions, refreshes playlists, and resets isLoading`() = runTest {
+        coEvery { syncRepository.syncPendingActions() } returns Result.success(0)
+        coEvery { musicRepository.refreshPlaylists() } returns Result.success(Unit)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.refreshHome()
+        advanceUntilIdle()
+
+        coVerify { syncRepository.syncPendingActions() }
+        coVerify(atLeast = 1) { musicRepository.refreshPlaylists() }
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `refreshHome reconnects deviceSyncManager if present`() = runTest {
+        val deviceSyncManager: com.sangita.app.sync.DeviceSyncManager = mockk(relaxed = true)
+        val viewModel = HomeViewModel(
+            userPreferences = userPreferences,
+            networkClient = networkClient,
+            musicRepository = musicRepository,
+            syncRepository = syncRepository,
+            playbackController = playbackController,
+            downloadManager = downloadManager,
+            deviceSyncManager = deviceSyncManager,
+            connectivityObserver = connectivityObserver
+        )
+        advanceUntilIdle()
+
+        viewModel.refreshHome()
+        advanceUntilIdle()
+
+        verify { deviceSyncManager.connect() }
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `refreshHome gracefully handles network failures and clears loading state`() = runTest {
+        coEvery { syncRepository.syncPendingActions() } returns Result.failure(java.io.IOException("Network down"))
+        coEvery { musicRepository.refreshPlaylists() } returns Result.failure(java.io.IOException("Network down"))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.refreshHome()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
 }

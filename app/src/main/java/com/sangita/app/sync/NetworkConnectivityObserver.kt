@@ -20,8 +20,7 @@ open class NetworkConnectivityObserver(context: Context? = null) {
             val cm = connectivityManager ?: return true
             val net = cm.activeNetwork ?: return false
             val caps = cm.getNetworkCapabilities(net) ?: return false
-            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         }
 
     open fun observe(): Flow<Boolean> = callbackFlow {

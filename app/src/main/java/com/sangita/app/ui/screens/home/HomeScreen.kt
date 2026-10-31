@@ -25,8 +25,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudOff
@@ -39,6 +41,8 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
@@ -58,6 +62,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -93,6 +98,7 @@ import androidx.compose.ui.unit.sp
 import com.sangita.app.R
 import com.sangita.app.data.local.preferences.UserPreferences
 import com.sangita.app.domain.model.DownloadStatus
+import com.sangita.app.domain.model.Playlist
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.DownloadQueueBottomSheet
@@ -102,6 +108,7 @@ import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
 import com.sangita.app.ui.dialogs.AddToPlaylistSheet
 import com.sangita.app.ui.dialogs.CreatePlaylistDialog
+import com.sangita.app.ui.screens.library.PlaylistThumbnail
 import com.sangita.app.ui.theme.DeepNavyBlue
 import com.sangita.app.ui.theme.SangitaThemeColors
 import kotlinx.coroutines.launch
@@ -113,6 +120,7 @@ fun HomeScreen(
     onNavigateToLibrary: () -> Unit,
     onNavigateToDownloads: () -> Unit,
     onNavigateToDiscover: () -> Unit = {},
+    onNavigateToPlaylist: (String) -> Unit = {},
     onOpenFullPlayer: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -263,7 +271,9 @@ fun HomeScreen(
             },
             containerColor = Color.Transparent
         ) { innerPadding ->
-            Box(
+            PullToRefreshBox(
+                isRefreshing = uiState.isLoading,
+                onRefresh = viewModel::refreshHome,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
@@ -273,6 +283,7 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = 32.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -301,33 +312,60 @@ fun HomeScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "You're currently offline. Listen to your downloaded playlists and songs in your library.",
+                        text = "You're currently offline. Pull down to reconnect, or listen to your downloaded playlists and songs in your library.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.textSecondary,
                         textAlign = TextAlign.Center,
                         lineHeight = 20.sp
                     )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = onNavigateToLibrary,
-                        shape = RoundedCornerShape(22.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colors.buttonBg,
-                            contentColor = DeepNavyBlue
-                        ),
-                        modifier = Modifier.height(46.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.LibraryMusic,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Go to Library",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
+                        Button(
+                            onClick = viewModel::refreshHome,
+                            shape = RoundedCornerShape(22.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colors.buttonBg,
+                                contentColor = DeepNavyBlue
+                            ),
+                            modifier = Modifier.height(46.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Retry",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = onNavigateToLibrary,
+                            shape = RoundedCornerShape(22.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colors.elevated,
+                                contentColor = colors.textPrimary
+                            ),
+                            modifier = Modifier.height(46.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LibraryMusic,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Go to Library",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 }
             } else {
@@ -595,7 +633,100 @@ fun HomeScreen(
                         )
                     }
 
-                    // 3. TOP 10 MOST PLAYED SONGS (Clean Minimal Library Rows)
+                    // 4. YOUR PLAYLISTS SHELF
+                    if (playlists.isNotEmpty()) {
+                        item(contentType = "playlists_shelf") {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Your Playlists",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colors.textPrimary,
+                                            fontSize = 16.sp,
+                                            modifier = Modifier.semantics { heading() }
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "Collections in your library",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = colors.textSecondary,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                            .clickable(
+                                                role = Role.Button,
+                                                onClickLabel = "View all in library",
+                                                onClick = onNavigateToLibrary
+                                            )
+                                    ) {
+                                        Text(
+                                            text = "View All",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = colors.textSecondary,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 12.sp
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.ChevronRight,
+                                            contentDescription = null,
+                                            tint = colors.textMuted,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    itemsIndexed(
+                                        items = playlists,
+                                        key = { _, pl -> "pl_${pl.id}" }
+                                    ) { _, playlist ->
+                                        HomePlaylistCard(
+                                            playlist = playlist,
+                                            serverUrl = viewModel.serverUrl,
+                                            token = viewModel.token,
+                                            onClick = { onNavigateToPlaylist(playlist.id) },
+                                            onPlayClick = {
+                                                if (playlist.tracks.isNotEmpty()) {
+                                                    viewModel.playTrack(playlist.tracks.first(), playlist.tracks)
+                                                } else {
+                                                    onNavigateToPlaylist(playlist.id)
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider(
+                                color = colors.border,
+                                thickness = 1.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                            )
+                        }
+                    }
+
+                    // 5. TOP 10 MOST PLAYED SONGS (Clean Minimal Library Rows)
                     if (topTracks.isNotEmpty()) {
                         item(contentType = "top_header") {
                             Column(
@@ -652,6 +783,163 @@ fun HomeScreen(
                                     thickness = 0.75.dp,
                                     modifier = Modifier.padding(horizontal = 16.dp)
                                 )
+                            }
+                        }
+                    }
+
+                    // 6. EXPLORE MUSIC BANNER / EMPTY STATE
+                    if (topTracks.isEmpty() && allRecentlyPlayedDomain.isEmpty()) {
+                        if (playlists.isNotEmpty()) {
+                            item(contentType = "discover_banner") {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = CardDefaults.cardColors(containerColor = colors.card),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable(
+                                                role = Role.Button,
+                                                onClickLabel = "Explore music in Discover",
+                                                onClick = onNavigateToDiscover
+                                            )
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(colors.elevated)
+                                                .border(1.dp, colors.border, RoundedCornerShape(10.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Explore,
+                                                contentDescription = null,
+                                                tint = colors.accent,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(14.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Discover New Music",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = colors.textPrimary,
+                                                fontSize = 15.sp
+                                            )
+                                            Text(
+                                                text = "Explore community playlists, artists, and trending songs",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colors.textSecondary,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.ChevronRight,
+                                            contentDescription = null,
+                                            tint = colors.textMuted,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            item(contentType = "welcome_card") {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = colors.card),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(56.dp)
+                                                .clip(CircleShape)
+                                                .background(colors.elevated)
+                                                .border(1.dp, colors.border, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.MusicNote,
+                                                contentDescription = null,
+                                                tint = colors.accent,
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Text(
+                                            text = "Welcome to Sangita",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colors.textPrimary,
+                                            fontSize = 17.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Pull down to refresh and connect to your server, or explore tracks in Discover and your Library.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colors.textSecondary,
+                                            textAlign = TextAlign.Center,
+                                            lineHeight = 18.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(18.dp))
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Button(
+                                                onClick = onNavigateToDiscover,
+                                                shape = RoundedCornerShape(20.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = colors.buttonBg,
+                                                    contentColor = DeepNavyBlue
+                                                ),
+                                                modifier = Modifier.height(40.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Explore,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Discover", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            }
+
+                                            Button(
+                                                onClick = onNavigateToLibrary,
+                                                shape = RoundedCornerShape(20.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = colors.elevated,
+                                                    contentColor = colors.textPrimary
+                                                ),
+                                                modifier = Modifier.height(40.dp)
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_folder_music),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Library", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1188,6 +1476,94 @@ private fun RecentlyPlayedCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 11.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomePlaylistCard(
+    playlist: Playlist,
+    serverUrl: String,
+    token: String?,
+    onClick: () -> Unit,
+    onPlayClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = SangitaThemeColors.current
+
+    Card(
+        modifier = modifier
+            .width(136.dp)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = "Open playlist ${playlist.name}",
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.card),
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.border)
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.elevated),
+                contentAlignment = Alignment.Center
+            ) {
+                PlaylistThumbnail(
+                    playlist = playlist,
+                    serverUrl = serverUrl,
+                    token = token,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Quick Play button in bottom-right corner of thumbnail
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(DeepNavyBlue.copy(alpha = 0.85f))
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = "Play playlist ${playlist.name}",
+                            onClick = onPlayClick
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = playlist.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.textPrimary,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            val count = if (playlist.trackCount > 0) playlist.trackCount else playlist.tracks.size
+            Text(
+                text = if (count == 1) "1 track" else "$count tracks",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary,
+                fontSize = 11.sp,
+                maxLines = 1
             )
         }
     }

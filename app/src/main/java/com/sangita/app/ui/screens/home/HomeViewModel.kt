@@ -81,18 +81,69 @@ class HomeViewModel(
     init {
         viewModelScope.launch {
             connectivityObserver.observe().collect { online ->
-                if (online && _uiState.value.stats == null) {
-                    loadHomeData(force = true)
+                if (online) {
+                    if (_uiState.value.stats == null) {
+                        loadHomeData(force = true)
+                    }
+                    try {
+                        musicRepository.refreshPlaylists()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {}
                 }
             }
         }
         loadHomeData()
+        viewModelScope.launch {
+            try {
+                musicRepository.refreshPlaylists()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun refreshHome() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, syncError = null) }
+            try {
+                // 1. Reconnect sync socket if available
+                try {
+                    deviceSyncManager?.connect()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {}
+
+                // 2. Sync pending offline mutations
+                try {
+                    syncRepository.syncPendingActions().getOrThrow()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {}
+
+                // 3. Refresh playlists from server
+                try {
+                    musicRepository.refreshPlaylists().getOrThrow()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {}
+
+                // 4. Force reload user stats and data usage
+                loadHomeData(force = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(syncError = "Could not refresh home. Check your connection.") }
+            } finally {
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
     }
 
     fun loadHomeData(force: Boolean = false) {
         if (!force && _uiState.value.stats != null) return
         viewModelScope.launch {
-            if (!connectivityObserver.isOnline) {
+            if (!force && !connectivityObserver.isOnline) {
                 _uiState.update { it.copy(isLoading = false) }
                 return@launch
             }
@@ -120,7 +171,11 @@ class HomeViewModel(
                     if (dataUsageResp.isSuccessful && dataUsageResp.body() != null) {
                         _dataUsageToday.value = dataUsageResp.body()!!.today.formatted
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {}
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 _uiState.update { it.copy(isLoading = false) }
             }
