@@ -432,8 +432,42 @@ class DiscoverViewModelTest {
         // d) Token matching
         assertTrue(matchIndividualLetters("radio police", "Karma Police", "Radiohead"))
         assertFalse(matchIndividualLetters("radio police queen", "Karma Police", "Radiohead"))
+        // Token matching with separator/punctuation
+        assertTrue(matchIndividualLetters("Radiohead - Karma Police", "Karma Police", "Radiohead"))
+        assertTrue(matchIndividualLetters("Radiohead -", "Radiohead"))
 
         // Non-matching query
         assertFalse(matchIndividualLetters("xyz123", "Karma Police", "Radiohead"))
+    }
+
+    @Test
+    fun `search query matching artist and playlist populates both and songs underneath`() = runTest {
+        val viewModel = DiscoverViewModel(
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            connectivityObserver = connectivityObserver
+        )
+        advanceUntilIdle()
+
+        // "Radio" matches artist "Radiohead" and track "Karma Police" by "Radiohead"
+        viewModel.onSearchQueryChange("Radio")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        // Artists populated first
+        assertEquals(1, state.artists.size)
+        assertEquals("Radiohead", state.artists[0].name)
+
+        // Tracks populated underneath
+        assertEquals(1, state.tracks.size)
+        assertEquals("Karma Police", state.tracks[0].title)
+
+        // "Rock" matches folder playlist "Rock Classics" and tracks with playlist "Rock Classics" or albums
+        viewModel.onSearchQueryChange("Rock")
+        advanceUntilIdle()
+
+        val rockState = viewModel.uiState.value
+        assertEquals(1, rockState.folderPlaylists.size)
+        assertEquals("Rock Classics", rockState.folderPlaylists[0].title)
     }
 }

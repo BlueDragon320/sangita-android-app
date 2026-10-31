@@ -277,33 +277,6 @@ fun DiscoverScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
                     ) {
-                        // Section 0: Songs (when searching)
-                        if (uiState.searchQuery.isNotBlank() && uiState.tracks.isNotEmpty()) {
-                            item(key = "section_songs_header") {
-                                SectionHeader(
-                                    title = "Songs",
-                                    count = uiState.tracks.size,
-                                    colors = colors
-                                )
-                            }
-                            items(
-                                items = uiState.tracks,
-                                key = { "track_${it.id}" }
-                            ) { track ->
-                                TrackItemRow(
-                                    track = track,
-                                    serverUrl = viewModel.serverUrl,
-                                    token = viewModel.token,
-                                    isPlayingThisTrack = playbackState.currentTrack?.id == track.id,
-                                    onClick = { viewModel.playTrack(track) },
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                                )
-                            }
-                            item(key = "section_songs_spacer") {
-                                Spacer(modifier = Modifier.height(20.dp))
-                            }
-                        }
-
                         // Section 1: Artists (Horizontal carousel)
                         if (uiState.artists.isNotEmpty()) {
                             item(key = "section_artists_header") {
@@ -392,6 +365,36 @@ fun DiscoverScreen(
                                     colors = colors,
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                                 )
+                            }
+                            item(key = "section_community_spacer") {
+                                Spacer(modifier = Modifier.height(20.dp))
+                            }
+                        }
+
+                        // Section 4: Songs (when searching - displayed AFTER Artists and Playlists)
+                        if (uiState.searchQuery.isNotBlank() && uiState.tracks.isNotEmpty()) {
+                            item(key = "section_songs_header") {
+                                SectionHeader(
+                                    title = "Songs",
+                                    count = uiState.tracks.size,
+                                    colors = colors
+                                )
+                            }
+                            items(
+                                items = uiState.tracks,
+                                key = { "track_${it.id}" }
+                            ) { track ->
+                                TrackItemRow(
+                                    track = track,
+                                    serverUrl = viewModel.serverUrl,
+                                    token = viewModel.token,
+                                    isPlayingThisTrack = playbackState.currentTrack?.id == track.id,
+                                    onClick = { viewModel.playTrack(track) },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                                )
+                            }
+                            item(key = "section_songs_spacer") {
+                                Spacer(modifier = Modifier.height(20.dp))
                             }
                         }
                     }

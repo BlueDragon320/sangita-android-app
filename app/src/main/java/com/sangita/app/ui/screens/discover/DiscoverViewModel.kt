@@ -304,8 +304,15 @@ fun matchIndividualLetters(query: String, vararg fields: String?): Boolean {
         return true
     }
 
-    // d) Token matching: if query has multiple words, all words match
-    val tokens = q.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+    // d) Token matching: if query has multiple words, all words match across fields
+    val rawTokens = q.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+    val tokens = rawTokens.filter { token -> token.any { it.isLetterOrDigit() } }.ifEmpty { rawTokens }
+    if (tokens.size == 1 && tokens[0] != q) {
+        val single = tokens[0]
+        return targets.any { field ->
+            field.contains(single) || isSubsequence(single, field) || isMultisetMatch(single, field)
+        }
+    }
     if (tokens.size > 1) {
         return tokens.all { token ->
             targets.any { field ->
