@@ -110,10 +110,10 @@ cd sangita-android-app
 export ANDROID_HOME="$HOME/Android/Sdk"
 
 # The Gradle wrapper downloads its configured Gradle version if needed.
-bash gradlew testDebugUnitTest assembleDebug
+bash gradlew testDebugUnitTest assemblePerformance
 ```
 
-The debug APK is created at `app/build/outputs/apk/debug/app-debug.apk`. For a non-debug build, run `bash gradlew assembleRelease`. The project does not configure release signing, so configure a signing key before distributing or installing a signed release.
+The performance APK is created at `app/build/outputs/apk/performance/app-performance.apk`. It is non-debuggable and signed with this computer's Android debug key, making it suitable for responsive local testing and in-place updates of apps signed with that same key. For debugging use `assembleDebug`; debug builds can scroll less smoothly. For distribution use `assembleRelease` with the project's real release signing key; do not distribute the debug-key-signed performance build.
 
 ### Install or update on a connected phone
 
@@ -121,7 +121,7 @@ Enable USB debugging on the phone, connect it by USB, and approve the debugging 
 
 ```bash
 adb devices
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/performance/app-performance.apk
 ```
 
 Android only installs an APK as an update when its application ID and signing certificate match the existing app and its version code is compatible. If the signing keys differ, the existing app cannot be updated with that APK. Uninstalling it removes its app data, including its settings and downloaded music. Keep your signing key safe and out of Git; losing it prevents in-place updates signed with that key.

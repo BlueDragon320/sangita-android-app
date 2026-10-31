@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -106,8 +107,6 @@ import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.DownloadQueueBottomSheet
 import com.sangita.app.ui.components.DownloadQueueIconButton
 import com.sangita.app.ui.components.MiniPlayer
-import com.sangita.app.ui.components.NavTab
-import com.sangita.app.ui.components.SangitaBottomNavBar
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
 import com.sangita.app.ui.theme.SangitaColors
@@ -136,11 +135,9 @@ fun LibraryScreen(
     val libraryArtists by viewModel.libraryArtists.collectAsState()
     val librarySongs by viewModel.librarySongs.collectAsState()
     val downloadedTracks by viewModel.downloadedTracks.collectAsState()
-    val playbackState = viewModel.playbackState.collectAsState()
+    val currentPlayingTrackId by viewModel.currentPlayingTrackId.collectAsState()
     val devices by viewModel.devices.collectAsState()
-    val activeDownloads by viewModel.activeDownloads.collectAsState()
     val activeDownloadsCount by viewModel.activeDownloadsCount.collectAsState()
-    val totalDownloadSpeed by viewModel.totalDownloadSpeed.collectAsState()
     val recoverablePlaylists by viewModel.recoverableLegacyPlaylists.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -151,10 +148,6 @@ fun LibraryScreen(
 
     val colors = SangitaThemeColors.current
     val activeTab = uiState.selectedFilter ?: "Playlists"
-
-    val currentPlayingTrackId by remember(playbackState) {
-        derivedStateOf { playbackState.value.currentTrack?.id }
-    }
 
     val regularPlaylists = remember(libraryPlaylists) {
         libraryPlaylists.filter { !it.isFavorites && !it.name.equals("Favorites", ignoreCase = true) }
@@ -391,7 +384,7 @@ fun LibraryScreen(
             }
         },
         bottomBar = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding()) {
                 val miniPlaybackState by viewModel.playbackState.collectAsState()
                 if (miniPlaybackState.currentTrack != null) {
                     MiniPlayer(
@@ -405,18 +398,6 @@ fun LibraryScreen(
                         onClick = onOpenFullPlayer
                     )
                 }
-                SangitaBottomNavBar(
-                    currentTab = NavTab.LIBRARY,
-                    onTabSelected = { tab ->
-                        when (tab) {
-                            NavTab.HOME -> onNavigateToHome()
-                            NavTab.DISCOVER -> onNavigateToDiscover()
-                            NavTab.LIBRARY -> {}
-                            NavTab.DOWNLOADS -> onNavigateToDownloads()
-                            else -> {}
-                        }
-                    }
-                )
             }
         },
         containerColor = colors.background
@@ -799,6 +780,8 @@ fun LibraryScreen(
 
         // Live Download Queue Bottom Sheet
         if (uiState.showDownloadSheet) {
+            val activeDownloads by viewModel.activeDownloads.collectAsState()
+            val totalDownloadSpeed by viewModel.totalDownloadSpeed.collectAsState()
             val downloadSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             DownloadQueueBottomSheet(
                 sheetState = downloadSheetState,

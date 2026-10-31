@@ -7,16 +7,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -42,7 +47,8 @@ fun EditPlaylistDialog(
     initialDescription: String?,
     initialVisibility: String,
     onDismiss: () -> Unit,
-    onSave: (title: String, description: String?, visibility: String) -> Unit
+    onSave: (title: String, description: String?, visibility: String) -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
     val colors = SangitaThemeColors.current
     var title by remember { mutableStateOf(initialTitle) }
@@ -225,6 +231,31 @@ fun EditPlaylistDialog(
                         color = colors.textMuted,
                         modifier = Modifier.padding(start = 2.dp, top = 2.dp)
                     )
+                }
+
+                // Delete action (only shown when deletion is supported)
+                if (onDelete != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = colors.border)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TextButton(
+                        onClick = onDelete,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete playlist",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Delete playlist",
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         },

@@ -241,7 +241,7 @@ private fun DeviceItemRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 68.dp)
+            .height(68.dp)
             .clickable(
                 enabled = !device.isActive,
                 role = Role.Button,
@@ -293,14 +293,18 @@ private fun DeviceItemRow(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(
                         text = device.deviceName,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = colors.textPrimary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                     if (device.isMe) {
                         Spacer(modifier = Modifier.width(6.dp))
@@ -347,7 +351,7 @@ private fun DeviceItemRow(
                         .clip(RoundedCornerShape(6.dp))
                         .background(colors.accent.copy(alpha = 0.15f))
                         .border(1.dp, colors.accent.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -365,9 +369,10 @@ private fun DeviceItemRow(
                         contentColor = colors.buttonContent
                     ),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                     modifier = Modifier
-                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 36.dp)
+                        .height(36.dp)
                         .semantics {
                             contentDescription = "Transfer playback to ${device.deviceName}"
                         }

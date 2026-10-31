@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -28,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Clear
@@ -79,8 +81,6 @@ import coil.request.ImageRequest
 import com.sangita.app.data.remote.dto.ArtistDto
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.ui.components.MiniPlayer
-import com.sangita.app.ui.components.NavTab
-import com.sangita.app.ui.components.SangitaBottomNavBar
 import com.sangita.app.ui.screens.library.PlaylistThumbnail
 import com.sangita.app.ui.theme.SangitaColors
 import com.sangita.app.ui.theme.SangitaThemeColors
@@ -120,14 +120,19 @@ fun DiscoverScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "Discover",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.textPrimary,
-                        fontSize = 28.sp,
-                        modifier = Modifier.semantics { heading() }
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onNavigateToHome) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
+                        }
+                        Text(
+                            text = "Discover",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.textPrimary,
+                            fontSize = 28.sp,
+                            modifier = Modifier.semantics { heading() }
+                        )
+                    }
 
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
@@ -211,7 +216,7 @@ fun DiscoverScreen(
             }
         },
         bottomBar = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding()) {
                 if (playbackState.currentTrack != null) {
                     MiniPlayer(
                         playbackState = playbackState,
@@ -225,18 +230,6 @@ fun DiscoverScreen(
                     )
                 }
 
-                SangitaBottomNavBar(
-                    currentTab = NavTab.DISCOVER,
-                    onTabSelected = { tab ->
-                        when (tab) {
-                            NavTab.HOME -> onNavigateToHome()
-                            NavTab.DISCOVER -> {}
-                            NavTab.LIBRARY -> onNavigateToLibrary()
-                            NavTab.DOWNLOADS -> onNavigateToDownloads()
-                            else -> {}
-                        }
-                    }
-                )
             }
         }
     ) { innerPadding ->

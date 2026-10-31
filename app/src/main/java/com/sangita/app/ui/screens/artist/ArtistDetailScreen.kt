@@ -93,6 +93,8 @@ import coil.request.ImageRequest
 import com.sangita.app.data.remote.dto.ArtistTrackDto
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.ui.components.MiniPlayer
+import com.sangita.app.ui.components.SongActionsSheet
+import com.sangita.app.ui.components.rememberCoverModel
 import com.sangita.app.ui.components.PlayingBars
 import com.sangita.app.ui.theme.SangitaColors
 import com.sangita.app.ui.theme.SangitaThemeColors
@@ -279,6 +281,8 @@ fun ArtistDetailScreen(
                                 val isSaved = savedTracks.any { it.id == track.path }
                                 ArtistTrackItemRow(
                                     track = track,
+                                    serverUrl = viewModel.serverUrl,
+                                    token = viewModel.token,
                                     artistFallback = artist.name,
                                     index = index + 1,
                                     isPlayingThisTrack = currentPlayingTrackId == track.path,
@@ -664,6 +668,8 @@ private fun ArtistHeaderSection(
 @Composable
 private fun ArtistTrackItemRow(
     track: ArtistTrackDto,
+    serverUrl: String,
+    token: String?,
     artistFallback: String,
     index: Int,
     isPlayingThisTrack: Boolean,
@@ -746,17 +752,6 @@ private fun ArtistTrackItemRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        if (isDownloaded) {
-            Icon(
-                imageVector = Icons.Default.Download,
-                contentDescription = "Downloaded offline",
-                tint = colors.accent,
-                modifier = Modifier
-                    .padding(end = 4.dp)
-                    .size(16.dp)
-            )
-        }
-
         // Duration
         val durationFormatted = formatTrackDuration(track.duration)
         Text(
@@ -780,9 +775,13 @@ private fun ArtistTrackItemRow(
                 )
             }
 
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
+            if (showMenu) {
+            val artwork = rememberCoverModel(track.path, null, serverUrl, token, isDownloaded)
+            SongActionsSheet(
+                title = trackTitle,
+                subtitle = listOfNotNull(track.artist?.takeIf { it.isNotBlank() } ?: artistFallback, formatTrackDuration(track.duration).takeIf { it != "—" }).joinToString(" • "),
+                artwork = artwork,
+                onDismiss = { showMenu = false }
             ) {
                 DropdownMenuItem(
                     text = {
@@ -859,6 +858,7 @@ private fun ArtistTrackItemRow(
                         onAddToPlaylistClick()
                     }
                 )
+            }
             }
         }
     }

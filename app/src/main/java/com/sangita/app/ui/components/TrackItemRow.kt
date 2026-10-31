@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -75,7 +74,6 @@ fun TrackItemRow(
     onAddToPlaylist: (() -> Unit)? = null,
     onToggleSave: (() -> Unit)? = null,
     isSaved: Boolean = false,
-    onMenuClick: (() -> Unit)? = null,
     extraMenuItems: (@Composable ColumnScope.(() -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -207,7 +205,7 @@ fun TrackItemRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Right side: Favorite + Download status + Duration timestamp + 48dp 3-dots Menu Button
+        // Right side: Favorite + Downloading status + Duration timestamp + 48dp 3-dots Menu Button
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (track.isFavorite) {
                 Icon(
@@ -221,17 +219,7 @@ fun TrackItemRow(
                 )
             }
 
-            if (track.isDownloaded) {
-                Icon(
-                    imageVector = Icons.Default.Download,
-                    contentDescription = "Downloaded offline",
-                    tint = colors.accent,
-                    modifier = Modifier
-                        .padding(end = 6.dp)
-                        .size(15.dp)
-                        .testTag("download_indicator")
-                )
-            } else if (track.downloadStatus == DownloadStatus.DOWNLOADING) {
+            if (track.downloadStatus == DownloadStatus.DOWNLOADING) {
                 CircularProgressIndicator(
                     modifier = Modifier
                         .padding(end = 6.dp)
@@ -254,14 +242,7 @@ fun TrackItemRow(
 
             Box {
                 IconButton(
-                    onClick = {
-                        if (onMenuClick != null && onAddToPlaylist == null && onDeleteDownload == null) {
-                            onMenuClick()
-                        } else {
-                            showMenu = true
-                            onMenuClick?.invoke()
-                        }
-                    },
+                    onClick = { showMenu = true },
                     modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
@@ -272,21 +253,18 @@ fun TrackItemRow(
                     )
                 }
 
-                if (onMenuClick == null || onAddToPlaylist != null || onDeleteDownload != null) {
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        modifier = Modifier.background(colors.card)
+                if (showMenu) {
+                    SongActionsSheet(
+                        title = track.title,
+                        subtitle = listOfNotNull(track.artist.takeIf { it.isNotBlank() }, track.durationSeconds?.takeIf { it > 0 }?.let { formatSeconds(it) }).joinToString(" • "),
+                        artwork = imageRequest,
+                        onDismiss = { showMenu = false }
                     ) {
                         // a) Favorite toggle
                         val favText = if (track.isFavorite) "Remove from favorites" else "Add to favorites"
                         DropdownMenuItem(
                             text = {
-                                Text(
-                                    text = favText,
-                                    color = colors.textPrimary,
-                                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
-                                )
+                                SongActionText(favText, if (track.isFavorite) "Remove this song from favorites" else "Keep this song in favorites")
                             },
                             leadingIcon = {
                                 Icon(
@@ -300,6 +278,7 @@ fun TrackItemRow(
                                 showMenu = false
                                 onToggleFavorite?.invoke()
                             },
+                            enabled = onToggleFavorite != null && track.isAvailable,
                             modifier = Modifier
                                 .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                 .semantics(mergeDescendants = true) {}
@@ -314,11 +293,7 @@ fun TrackItemRow(
                         }
                         DropdownMenuItem(
                             text = {
-                                Text(
-                                    text = downloadText,
-                                    color = colors.textPrimary,
-                                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
-                                )
+                                SongActionText(downloadText, if (track.isDownloaded) "Manage offline music" else "Listen without internet")
                             },
                             leadingIcon = {
                                 Icon(
@@ -340,6 +315,9 @@ fun TrackItemRow(
                                     onDownloadClick?.invoke()
                                 }
                             },
+                            enabled = track.downloadStatus != DownloadStatus.DOWNLOADING &&
+                                ((track.isDownloaded && onDeleteDownload != null) ||
+                                    (!track.isDownloaded && track.isAvailable && onDownloadClick != null)),
                             modifier = Modifier
                                 .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                 .semantics(mergeDescendants = true) {}
@@ -351,11 +329,7 @@ fun TrackItemRow(
                             val saveText = if (isSaved) "Remove from library" else "Save to library"
                             DropdownMenuItem(
                                 text = {
-                                    Text(
-                                        text = saveText,
-                                        color = colors.textPrimary,
-                                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
-                                    )
+                                    SongActionText(saveText, if (isSaved) "Remove this shortcut from your library" else "Find this song in your library")
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -380,11 +354,7 @@ fun TrackItemRow(
                         if (onAddToPlaylist != null) {
                             DropdownMenuItem(
                                 text = {
-                                    Text(
-                                        text = "Add to playlist",
-                                        color = colors.textPrimary,
-                                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
-                                    )
+                                    SongActionText("Add to playlist", "Choose a playlist for this song")
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -418,5 +388,5 @@ fun formatSeconds(seconds: Double): String {
     val totalSec = seconds.toLong()
     val minutes = totalSec / 60
     val secs = totalSec % 60
-    return String.format("%d:%02d", minutes, secs)
+    return if (secs < 10) "$minutes:0$secs" else "$minutes:$secs"
 }

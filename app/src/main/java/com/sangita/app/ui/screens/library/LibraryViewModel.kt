@@ -21,6 +21,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -76,6 +79,10 @@ class LibraryViewModel(
     val token: String?
         get() = userPreferences.getToken()
     val playbackState = playbackController.playbackState
+    val currentPlayingTrackId: StateFlow<String?> = playbackController.playbackState
+        .map { it.currentTrack?.id }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val devices: StateFlow<List<SyncedDevice>> = deviceSyncManager?.devices
         ?: MutableStateFlow(emptyList())
@@ -187,25 +194,27 @@ class LibraryViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val filteredTracks: StateFlow<List<Track>> = combine(
-        musicRepository.observeAllTracks(),
-        musicRepository.observeDownloadedTracks(),
-        isOnline,
-        _uiState
-    ) { allTracks, downloadedTracks, online, state ->
-        val sourceTracks = if (online) allTracks else downloadedTracks
-        val query = state.searchQuery.trim()
-        if (query.isBlank()) {
-            emptyList()
-        } else {
-            sourceTracks.filter { track ->
-                track.title.contains(query, ignoreCase = true) ||
-                track.artist.contains(query, ignoreCase = true) ||
-                track.album.contains(query, ignoreCase = true) ||
-                track.playlist.contains(query, ignoreCase = true)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val filteredTracks: StateFlow<List<Track>> = _uiState
+        .map { it.searchQuery.trim() }
+        .distinctUntilChanged()
+        .flatMapLatest { query ->
+            if (query.isBlank()) {
+                flowOf(emptyList())
+            } else {
+                isOnline.flatMapLatest { online ->
+                    if (online) musicRepository.observeAllTracks()
+                    else musicRepository.observeDownloadedTracks()
+                }.map { tracks ->
+                    tracks.filter { track ->
+                        track.title.contains(query, ignoreCase = true) ||
+                        track.artist.contains(query, ignoreCase = true) ||
+                        track.album.contains(query, ignoreCase = true) ||
+                        track.playlist.contains(query, ignoreCase = true)
+                    }
+                }
             }
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }

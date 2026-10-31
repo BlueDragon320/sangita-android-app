@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -96,8 +97,7 @@ import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.DownloadQueueBottomSheet
 import com.sangita.app.ui.components.MiniPlayer
-import com.sangita.app.ui.components.NavTab
-import com.sangita.app.ui.components.SangitaBottomNavBar
+import com.sangita.app.ui.components.SongActionsSheet
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
 import com.sangita.app.ui.dialogs.AddToPlaylistSheet
@@ -245,7 +245,7 @@ fun HomeScreen(
                 }
             },
             bottomBar = {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding()) {
                     val miniPlaybackState by viewModel.playbackState.collectAsState()
                     if (miniPlaybackState.currentTrack != null) {
                         MiniPlayer(
@@ -259,18 +259,6 @@ fun HomeScreen(
                             onClick = onOpenFullPlayer
                         )
                     }
-                    SangitaBottomNavBar(
-                        currentTab = NavTab.HOME,
-                        onTabSelected = { tab ->
-                            when (tab) {
-                                NavTab.HOME -> {}
-                                NavTab.DISCOVER -> onNavigateToDiscover()
-                                NavTab.LIBRARY -> onNavigateToLibrary()
-                                NavTab.DOWNLOADS -> onNavigateToDownloads()
-                                else -> {}
-                            }
-                        }
-                    )
                 }
             },
             containerColor = Color.Transparent
@@ -1093,10 +1081,11 @@ private fun RecentlyPlayedCard(
                         )
                     }
 
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                        modifier = Modifier.background(colors.card)
+                    if (menuExpanded) SongActionsSheet(
+                        title = track.title,
+                        subtitle = listOfNotNull(track.artist.takeIf { it.isNotBlank() }, track.durationSeconds?.takeIf { it > 0 }?.let { com.sangita.app.ui.components.formatSeconds(it) }).joinToString(" • "),
+                        artwork = imageRequest,
+                        onDismiss = { menuExpanded = false }
                     ) {
                         if (onToggleFavorite != null) {
                             DropdownMenuItem(

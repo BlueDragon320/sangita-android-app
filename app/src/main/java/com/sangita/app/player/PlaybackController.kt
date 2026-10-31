@@ -493,11 +493,6 @@ class PlaybackController(
             return
         }
 
-        // Claim active device so server and webapp know this phone is now active
-        if (isSyncConnected) {
-            deviceSyncManager.claimActiveDevice(startPositionMs, trackDurationMs, track.id)
-        }
-
         // Apply repeat mode to player
         val exoRepeatMode = when (_playbackState.value.repeatMode) {
             RepeatMode.OFF -> Player.REPEAT_MODE_OFF
@@ -567,7 +562,9 @@ class PlaybackController(
                 isPlaying = true,
                 isLoop = _playbackState.value.repeatMode != RepeatMode.OFF,
                 isShuffle = _playbackState.value.shuffleModeEnabled,
-                forceClaim = forceLocal
+                // Publish the selected song directly when taking over. A transfer
+                // request here generates another handoff and can replay stale songs.
+                forceClaim = forceLocal || currentActiveId != myId
             )
         }
     }
@@ -575,9 +572,6 @@ class PlaybackController(
     fun playHere() {
         val current = _playbackState.value.currentTrack ?: return
         val pos = _playbackState.value.currentPositionMs
-        val dur = _playbackState.value.durationMs
-
-        deviceSyncManager.claimActiveDevice(pos, dur, current.id)
         _playbackState.update {
             it.copy(
                 isActiveDevice = true,

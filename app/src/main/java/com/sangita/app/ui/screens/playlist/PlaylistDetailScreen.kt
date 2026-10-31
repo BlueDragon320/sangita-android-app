@@ -1,7 +1,5 @@
 package com.sangita.app.ui.screens.playlist
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,7 +30,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -45,12 +42,10 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -97,7 +92,6 @@ import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sangita.app.data.local.storage.LocalStorageManager
-import com.sangita.app.domain.model.DownloadStatus
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.MiniPlayer
@@ -106,13 +100,14 @@ import com.sangita.app.ui.components.rememberCoverModel
 import com.sangita.app.ui.dialogs.AddToPlaylistSheet
 import com.sangita.app.ui.dialogs.CreatePlaylistDialog
 import com.sangita.app.ui.dialogs.EditPlaylistDialog
-import com.sangita.app.ui.theme.FavoritePink
 import com.sangita.app.ui.theme.SangitaEmerald
 import com.sangita.app.ui.theme.SangitaThemeColors
 import kotlin.math.absoluteValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private val playlistDominantColorCache = mutableMapOf<String, Color>()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -129,14 +124,13 @@ fun PlaylistDetailScreen(
     val unavailableCount = uiState.unavailableCount
     val userMessage = uiState.userMessage
 
-    val playbackState = viewModel.playbackState.collectAsState()
+    val currentPlayingTrackId by viewModel.currentPlayingTrackId.collectAsState()
     val devices by viewModel.devices.collectAsState()
     var showDevicesSheet by remember { mutableStateOf(false) }
 
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showCloneConfirm by remember { mutableStateOf(false) }
-    var isReorderMode by remember { mutableStateOf(false) }
     var selectedTrackForMenu by remember { mutableStateOf<Track?>(null) }
     var showAddToPlaylistSheet by remember { mutableStateOf(false) }
     var showCreateDialogFromSheet by remember { mutableStateOf(false) }
@@ -152,10 +146,6 @@ fun PlaylistDetailScreen(
         }
     }
 
-    val currentPlayingTrackId by remember(playbackState) {
-        derivedStateOf { playbackState.value.currentTrack?.id }
-    }
-
     val totalDurationSeconds = remember(tracks) { tracks.sumOf { it.durationSeconds ?: 0.0 } }
     val themeColors = SangitaThemeColors.current
     val isLight = themeColors.background.luminance() > 0.5f
@@ -166,12 +156,22 @@ fun PlaylistDetailScreen(
     }
 
     var dominantColor by remember(viewModel.playlistName) {
-        val hue = (viewModel.playlistName.hashCode().absoluteValue % 360).toFloat()
-        mutableStateOf(Color.hsl(hue, 0.45f, 0.20f))
+        val cached = playlistDominantColorCache[viewModel.playlistName]
+        if (cached != null) {
+            mutableStateOf(cached)
+        } else {
+            val hue = (viewModel.playlistName.hashCode().absoluteValue % 360).toFloat()
+            mutableStateOf(Color.hsl(hue, 0.45f, 0.20f))
+        }
     }
 
     LaunchedEffect(representativeTrack?.id) {
         val track = representativeTrack ?: return@LaunchedEffect
+        if (playlistDominantColorCache.containsKey(viewModel.playlistName)) {
+            return@LaunchedEffect
+        }
+        // Allow the 200ms page transition animation to complete smoothly before extracting palette
+        kotlinx.coroutines.delay(240)
         withContext(Dispatchers.IO) {
             try {
                 val localCover = LocalStorageManager.getOrExtractCoverFile(context, track.id, track.localFilePath)
@@ -196,7 +196,9 @@ fun PlaylistDetailScreen(
                         )
                         if (colorInt != 0) {
                             withContext(Dispatchers.Main) {
-                                dominantColor = Color(colorInt)
+                                val resolved = Color(colorInt)
+                                dominantColor = resolved
+                                playlistDominantColorCache[viewModel.playlistName] = resolved
                             }
                         }
                     }
@@ -204,12 +206,6 @@ fun PlaylistDetailScreen(
             } catch (_: Exception) {}
         }
     }
-
-    val animatedDominantColor by animateColorAsState(
-        targetValue = dominantColor,
-        animationSpec = tween(durationMillis = 600),
-        label = "PlaylistDominantColor"
-    )
 
     val isAmoled = themeColors.isAmoled
 
@@ -220,17 +216,17 @@ fun PlaylistDetailScreen(
         )
     } else if (isLight) {
         listOf(
-            animatedDominantColor.copy(alpha = 0.25f),
-            animatedDominantColor.copy(alpha = 0.10f),
-            animatedDominantColor.copy(alpha = 0.03f),
+            dominantColor.copy(alpha = 0.25f),
+            dominantColor.copy(alpha = 0.10f),
+            dominantColor.copy(alpha = 0.03f),
             themeColors.background,
             themeColors.background
         )
     } else {
         listOf(
-            animatedDominantColor.copy(alpha = 0.55f),
-            animatedDominantColor.copy(alpha = 0.25f),
-            animatedDominantColor.copy(alpha = 0.08f),
+            dominantColor.copy(alpha = 0.55f),
+            dominantColor.copy(alpha = 0.25f),
+            dominantColor.copy(alpha = 0.08f),
             themeColors.background,
             themeColors.background
         )
@@ -239,6 +235,7 @@ fun PlaylistDetailScreen(
     val displayTitle = playlist?.title ?: viewModel.playlistName
     val displayOwner = playlist?.owner ?: username
     val hasUnavailableTracks = unavailableCount > 0 || tracks.any { !it.isAvailable }
+    val savedTrackIds = remember(savedTracks) { savedTracks.map { it.id }.toSet() }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -260,32 +257,10 @@ fun PlaylistDetailScreen(
                 },
                 actions = {
                     if (isOwner) {
-                        IconButton(
-                            onClick = { isReorderMode = !isReorderMode },
-                            modifier = Modifier
-                                .size(48.dp)
-                                .semantics {
-                                    stateDescription = if (isReorderMode) "Reordering active" else "Reordering inactive"
-                                    role = Role.Checkbox
-                                }
-                        ) {
-                            Icon(
-                                imageVector = if (isReorderMode) Icons.Default.Check else Icons.Default.SwapVert,
-                                contentDescription = if (isReorderMode) "Done Reordering" else "Edit Order",
-                                tint = if (isReorderMode) themeColors.accent else themeColors.textPrimary
-                            )
-                        }
                         IconButton(onClick = { showEditDialog = true }, modifier = Modifier.size(48.dp)) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
-                                contentDescription = "Edit Playlist",
-                                tint = themeColors.textPrimary
-                            )
-                        }
-                        IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(48.dp)) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete Playlist",
+                                contentDescription = "Edit playlist",
                                 tint = themeColors.textPrimary
                             )
                         }
@@ -553,72 +528,7 @@ fun PlaylistDetailScreen(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            // If Owner or Admin: Edit Order, Edit & Delete buttons
-                            if (isOwner) {
-                                OutlinedButton(
-                                    onClick = { isReorderMode = !isReorderMode },
-                                    shape = RoundedCornerShape(24.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = if (isReorderMode) themeColors.accent.copy(alpha = 0.2f) else themeColors.card,
-                                        contentColor = if (isReorderMode) themeColors.accent else themeColors.textPrimary
-                                    ),
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        1.dp,
-                                        if (isReorderMode) themeColors.accent else themeColors.border
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .semantics {
-                                            stateDescription = if (isReorderMode) "Reordering active" else "Reordering inactive"
-                                            role = Role.Checkbox
-                                        }
-                                ) {
-                                    Icon(
-                                        imageVector = if (isReorderMode) Icons.Default.Check else Icons.Default.SwapVert,
-                                        contentDescription = if (isReorderMode) "Done Reordering" else "Edit Order",
-                                        tint = if (isReorderMode) themeColors.accent else themeColors.textPrimary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (isReorderMode) "Done" else "Edit Order",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (isReorderMode) themeColors.accent else themeColors.textPrimary
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                IconButton(
-                                    onClick = { showEditDialog = true },
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit Playlist",
-                                        tint = themeColors.textPrimary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                IconButton(
-                                    onClick = { showDeleteConfirm = true },
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete Playlist",
-                                        tint = themeColors.textPrimary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            } else {
+                            if (!isOwner) {
                                 // If Not Owner: Save to Library / Remove from Library button
                                 val isSaved = uiState.isSaved
                                 OutlinedButton(
@@ -702,371 +612,45 @@ fun PlaylistDetailScreen(
                     key = { _, track -> track.id },
                     contentType = { _, _ -> "track" }
                 ) { index, track ->
-                    var trackMenuExpanded by remember { mutableStateOf(false) }
-
-                    if (isReorderMode && isOwner) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 4.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Move Up / Move Down controls
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                IconButton(
-                                    onClick = {
-                                        if (index > 0) {
-                                            val mutable = tracks.toMutableList()
-                                            java.util.Collections.swap(mutable, index, index - 1)
-                                            viewModel.reorderTracks(mutable)
-                                        }
-                                    },
-                                    enabled = index > 0,
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowUp,
-                                        contentDescription = "Move ${track.title} up",
-                                        tint = if (index > 0) themeColors.accent else themeColors.textMuted.copy(alpha = 0.3f),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        if (index < tracks.size - 1) {
-                                            val mutable = tracks.toMutableList()
-                                            java.util.Collections.swap(mutable, index, index + 1)
-                                            viewModel.reorderTracks(mutable)
-                                        }
-                                    },
-                                    enabled = index < tracks.size - 1,
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowDown,
-                                        contentDescription = "Move ${track.title} down",
-                                        tint = if (index < tracks.size - 1) themeColors.accent else themeColors.textMuted.copy(alpha = 0.3f),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-
-                            Box(modifier = Modifier.weight(1f)) {
-                                TrackItemRow(
-                                    track = track,
-                                    serverUrl = viewModel.serverUrl,
-                                    token = viewModel.token,
-                                    index = index + 1,
-                                    isPlayingThisTrack = currentPlayingTrackId == track.id,
-                                    onClick = { viewModel.playTrack(track) },
-                                    onToggleFavorite = { viewModel.toggleFavorite(track) },
-                                    onDownloadClick = { viewModel.downloadTrack(track) },
-                                    onDeleteDownload = { viewModel.deleteDownloadedTrack(track) },
-                                    onMenuClick = { trackMenuExpanded = true }
-                                )
-
-                                DropdownMenu(
-                                    expanded = trackMenuExpanded,
-                                    onDismissRequest = { trackMenuExpanded = false },
-                                    modifier = Modifier.background(themeColors.card)
-                                ) {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                if (track.isFavorite) "Remove from favorites" else "Add to favorites",
-                                                color = themeColors.textPrimary
-                                            )
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                                contentDescription = null,
-                                                tint = if (track.isFavorite) FavoritePink else themeColors.textPrimary
-                                            )
-                                        },
-                                        onClick = {
-                                            trackMenuExpanded = false
-                                            viewModel.toggleFavorite(track)
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = {
-                                            val downloadText = when {
-                                                track.downloadStatus == DownloadStatus.DOWNLOADING -> "Downloading..."
-                                                track.isDownloaded -> "Remove download"
-                                                else -> "Download track"
-                                            }
-                                            Text(downloadText, color = themeColors.textPrimary)
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = if (track.isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
-                                                contentDescription = null,
-                                                tint = if (track.isDownloaded) themeColors.accent else themeColors.textPrimary
-                                            )
-                                        },
-                                        enabled = track.downloadStatus != DownloadStatus.DOWNLOADING && (track.isDownloaded || track.isAvailable),
-                                        onClick = {
-                                            trackMenuExpanded = false
-                                            if (track.isDownloaded) {
-                                                viewModel.deleteDownloadedTrack(track)
-                                            } else {
-                                                viewModel.downloadTrack(track)
-                                            }
-                                        }
-                                    )
-                                    if (track.isAvailable) {
-                                        val saved = savedTracks.any { it.id == track.id }
-                                        DropdownMenuItem(
-                                            text = { Text(if (saved) "Remove from library" else "Save to library", color = themeColors.textPrimary) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                                                    contentDescription = null,
-                                                    tint = themeColors.textPrimary
-                                                )
-                                            },
-                                            onClick = {
-                                                trackMenuExpanded = false
-                                                viewModel.toggleSavedTrack(track, saved)
-                                            }
-                                        )
-                                    }
-                                    if (index > 0) {
-                                        DropdownMenuItem(
-                                            text = { Text("Move up", color = themeColors.textPrimary) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.KeyboardArrowUp,
-                                                    contentDescription = null,
-                                                    tint = themeColors.accent
-                                                )
-                                            },
-                                            onClick = {
-                                                trackMenuExpanded = false
-                                                val mutable = tracks.toMutableList()
-                                                java.util.Collections.swap(mutable, index, index - 1)
-                                                viewModel.reorderTracks(mutable)
-                                            }
-                                        )
-                                    }
-                                    if (index < tracks.size - 1) {
-                                        DropdownMenuItem(
-                                            text = { Text("Move down", color = themeColors.textPrimary) },
-                                            leadingIcon = {
-                                                Icon(
-                                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                                    contentDescription = null,
-                                                    tint = themeColors.accent
-                                                )
-                                            },
-                                            onClick = {
-                                                trackMenuExpanded = false
-                                                val mutable = tracks.toMutableList()
-                                                java.util.Collections.swap(mutable, index, index + 1)
-                                                viewModel.reorderTracks(mutable)
-                                            }
-                                        )
-                                    }
-                                    DropdownMenuItem(
-                                        text = { Text("Add to playlist", color = themeColors.textPrimary) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.MusicNote,
-                                                contentDescription = null,
-                                                tint = themeColors.textPrimary
-                                            )
-                                        },
-                                        onClick = {
-                                            trackMenuExpanded = false
-                                            selectedTrackForMenu = track
-                                            showAddToPlaylistSheet = true
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Remove from playlist", color = MaterialTheme.colorScheme.error) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.error
-                                            )
-                                        },
-                                        onClick = {
-                                            trackMenuExpanded = false
-                                            viewModel.removeTrack(track)
-                                        }
-                                    )
-                                }
-                            }
-
-                            Icon(
-                                imageVector = Icons.Default.DragHandle,
-                                contentDescription = "Drag to reorder",
-                                tint = themeColors.textMuted,
-                                modifier = Modifier
-                                    .padding(end = 4.dp)
-                                    .size(20.dp)
-                            )
-                        }
-                    } else {
-                        Box {
-                            TrackItemRow(
-                                track = track,
-                                serverUrl = viewModel.serverUrl,
-                                token = viewModel.token,
-                                index = index + 1,
-                                isPlayingThisTrack = currentPlayingTrackId == track.id,
-                                onClick = { viewModel.playTrack(track) },
-                                onToggleFavorite = { viewModel.toggleFavorite(track) },
-                                onDownloadClick = { viewModel.downloadTrack(track) },
-                                onDeleteDownload = { viewModel.deleteDownloadedTrack(track) },
-                                onMenuClick = { trackMenuExpanded = true },
-                                modifier = Modifier.padding(horizontal = 8.dp)
-                            )
-
-                            // Track Context Dropdown Menu
-                            DropdownMenu(
-                                expanded = trackMenuExpanded,
-                                onDismissRequest = { trackMenuExpanded = false },
-                                modifier = Modifier.background(themeColors.card)
-                            ) {
+                    val isTrackSaved = track.id in savedTrackIds
+                    TrackItemRow(
+                        track = track,
+                        serverUrl = viewModel.serverUrl,
+                        token = viewModel.token,
+                        index = index + 1,
+                        isPlayingThisTrack = currentPlayingTrackId == track.id,
+                        onClick = { viewModel.playTrack(track) },
+                        onToggleFavorite = { viewModel.toggleFavorite(track) },
+                        onDownloadClick = { viewModel.downloadTrack(track) },
+                        onDeleteDownload = { viewModel.deleteDownloadedTrack(track) },
+                        isSaved = isTrackSaved,
+                        onToggleSave = if (track.isAvailable) { { viewModel.toggleSavedTrack(track, isTrackSaved) } } else null,
+                        onAddToPlaylist = { selectedTrackForMenu = track; showAddToPlaylistSheet = true },
+                        extraMenuItems = { closeMenu ->
+                            if (isOwner && index > 0) {
                                 DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (track.isFavorite) "Remove from favorites" else "Add to favorites",
-                                            color = themeColors.textPrimary
-                                        )
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = if (track.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                            contentDescription = null,
-                                            tint = if (track.isFavorite) FavoritePink else themeColors.textPrimary
-                                        )
-                                    },
-                                    onClick = {
-                                        trackMenuExpanded = false
-                                        viewModel.toggleFavorite(track)
-                                    }
+                                    text = { Text("Move up", color = themeColors.textPrimary) },
+                                    leadingIcon = { Icon(Icons.Default.KeyboardArrowUp, contentDescription = null, tint = themeColors.accent) },
+                                    onClick = { closeMenu(); val reordered = tracks.toMutableList(); java.util.Collections.swap(reordered, index, index - 1); viewModel.reorderTracks(reordered) }
                                 )
-                                DropdownMenuItem(
-                                    text = {
-                                        val downloadText = when {
-                                            track.downloadStatus == DownloadStatus.DOWNLOADING -> "Downloading..."
-                                            track.isDownloaded -> "Remove download"
-                                            else -> "Download track"
-                                        }
-                                        Text(downloadText, color = themeColors.textPrimary)
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = if (track.isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
-                                            contentDescription = null,
-                                            tint = if (track.isDownloaded) themeColors.accent else themeColors.textPrimary
-                                        )
-                                    },
-                                    enabled = track.downloadStatus != DownloadStatus.DOWNLOADING && (track.isDownloaded || track.isAvailable),
-                                    onClick = {
-                                        trackMenuExpanded = false
-                                        if (track.isDownloaded) {
-                                            viewModel.deleteDownloadedTrack(track)
-                                        } else {
-                                            viewModel.downloadTrack(track)
-                                        }
-                                    }
-                                )
-                                if (track.isAvailable) {
-                                    val saved = savedTracks.any { it.id == track.id }
-                                    DropdownMenuItem(
-                                        text = { Text(if (saved) "Remove from library" else "Save to library", color = themeColors.textPrimary) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                                                contentDescription = null,
-                                                tint = themeColors.textPrimary
-                                            )
-                                        },
-                                        onClick = {
-                                            trackMenuExpanded = false
-                                            viewModel.toggleSavedTrack(track, saved)
-                                        }
-                                    )
-                                }
-                                if (isOwner && index > 0) {
-                                    DropdownMenuItem(
-                                        text = { Text("Move up", color = themeColors.textPrimary) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.KeyboardArrowUp,
-                                                contentDescription = null,
-                                                tint = themeColors.accent
-                                            )
-                                        },
-                                        onClick = {
-                                            trackMenuExpanded = false
-                                            val mutable = tracks.toMutableList()
-                                            java.util.Collections.swap(mutable, index, index - 1)
-                                            viewModel.reorderTracks(mutable)
-                                        }
-                                    )
-                                }
-                                if (isOwner && index < tracks.size - 1) {
-                                    DropdownMenuItem(
-                                        text = { Text("Move down", color = themeColors.textPrimary) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.KeyboardArrowDown,
-                                                contentDescription = null,
-                                                tint = themeColors.accent
-                                            )
-                                        },
-                                        onClick = {
-                                            trackMenuExpanded = false
-                                            val mutable = tracks.toMutableList()
-                                            java.util.Collections.swap(mutable, index, index + 1)
-                                            viewModel.reorderTracks(mutable)
-                                        }
-                                    )
-                                }
-                                DropdownMenuItem(
-                                    text = { Text("Add to playlist", color = themeColors.textPrimary) },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.MusicNote,
-                                            contentDescription = null,
-                                            tint = themeColors.textPrimary
-                                        )
-                                    },
-                                    onClick = {
-                                        trackMenuExpanded = false
-                                        selectedTrackForMenu = track
-                                        showAddToPlaylistSheet = true
-                                    }
-                                )
-
-                                if (isOwner) {
-                                    DropdownMenuItem(
-                                        text = { Text("Remove from playlist", color = MaterialTheme.colorScheme.error) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.error
-                                            )
-                                        },
-                                        onClick = {
-                                            trackMenuExpanded = false
-                                            viewModel.removeTrack(track)
-                                        }
-                                    )
-                                }
                             }
-                        }
-                    }
+                            if (isOwner && index < tracks.size - 1) {
+                                DropdownMenuItem(
+                                    text = { Text("Move down", color = themeColors.textPrimary) },
+                                    leadingIcon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = themeColors.accent) },
+                                    onClick = { closeMenu(); val reordered = tracks.toMutableList(); java.util.Collections.swap(reordered, index, index + 1); viewModel.reorderTracks(reordered) }
+                                )
+                            }
+                            if (isOwner) {
+                                DropdownMenuItem(
+                                    text = { Text("Remove from playlist", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = { closeMenu(); viewModel.removeTrack(track) }
+                                )
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
                 }
             }
         }
@@ -1082,7 +666,13 @@ fun PlaylistDetailScreen(
             onSave = { title, description, visibility ->
                 showEditDialog = false
                 viewModel.updatePlaylist(title, description, visibility)
-            }
+            },
+            onDelete = if (uiState.canDelete) {
+                {
+                    showEditDialog = false
+                    showDeleteConfirm = true
+                }
+            } else null
         )
     }
 
@@ -1302,7 +892,7 @@ private fun CollageCell(
         ImageRequest.Builder(context)
             .data(coverModel)
             .size(200, 200)
-            .crossfade(100)
+            .crossfade(false)
             .build()
     }
 

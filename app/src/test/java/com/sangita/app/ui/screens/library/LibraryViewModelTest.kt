@@ -104,6 +104,46 @@ class LibraryViewModelTest {
     }
 
     @Test
+    fun `catalog tracks are loaded only while searching`() = runTest {
+        allTracksFlow.value = listOf(
+            Track(id = "one", title = "Blue Sky", artist = "Artist"),
+            Track(id = "two", title = "Rain", artist = "Artist")
+        )
+        val viewModel = createViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.filteredTracks.collect() }
+        advanceUntilIdle()
+        verify(exactly = 0) { musicRepository.observeAllTracks() }
+
+        viewModel.updateSearchQuery("blue")
+        advanceUntilIdle()
+        assertEquals(listOf("one"), viewModel.filteredTracks.value.map { it.id })
+        verify(exactly = 1) { musicRepository.observeAllTracks() }
+
+        viewModel.updateSearchQuery("")
+        advanceUntilIdle()
+        assertTrue(viewModel.filteredTracks.value.isEmpty())
+    }
+
+    @Test
+    fun `offline search uses downloaded tracks and reconnecting searches catalog`() = runTest {
+        val connectivity = MutableStateFlow(false)
+        every { connectivityObserver.isOnline } returns false
+        every { connectivityObserver.observe() } returns connectivity
+        downloadedTracksFlow.value = listOf(Track(id = "offline", title = "Blue", artist = "Artist"))
+        allTracksFlow.value = listOf(Track(id = "online", title = "Blue", artist = "Artist"))
+        val viewModel = createViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.filteredTracks.collect() }
+        viewModel.updateSearchQuery("blue")
+        advanceUntilIdle()
+        assertEquals(listOf("offline"), viewModel.filteredTracks.value.map { it.id })
+        verify(exactly = 0) { musicRepository.observeAllTracks() }
+
+        connectivity.value = true
+        advanceUntilIdle()
+        assertEquals(listOf("online"), viewModel.filteredTracks.value.map { it.id })
+    }
+
+    @Test
     fun `initial selectedFilter tab defaults to Playlists`() {
         val viewModel = createViewModel()
         assertEquals("Playlists", viewModel.uiState.value.selectedFilter)

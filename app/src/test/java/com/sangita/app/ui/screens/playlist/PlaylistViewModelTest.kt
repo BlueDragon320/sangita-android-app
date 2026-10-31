@@ -472,6 +472,142 @@ class PlaylistViewModelTest {
 
         assertEquals(track, fakeRepository.lastToggledFavoriteTrack)
     }
+
+    // -----------------------------------------------------------------
+    // Playlist Delete Tests
+    // -----------------------------------------------------------------
+
+    @Test
+    fun cancelDeleteDoesNotCallDeletePlaylist() = runTest(testDispatcher) {
+        val playlist = Playlist(
+            id = "pl-owned",
+            title = "My Mix",
+            kind = PlaylistKind.PERSONAL,
+            owner = "current_user"
+        )
+        fakeRepository.setPlaylist("pl-owned", playlist)
+
+        createViewModel("pl-owned")
+        advanceUntilIdle()
+
+        // No call to viewModel.deletePlaylist — repository must never be touched
+        assertNull(fakeRepository.lastDeletedKey)
+    }
+
+    @Test
+    fun confirmDeleteCallsDeletePlaylistOnce() = runTest(testDispatcher) {
+        val playlist = Playlist(
+            id = "pl-confirm",
+            title = "My Mix",
+            kind = PlaylistKind.PERSONAL,
+            owner = "current_user"
+        )
+        fakeRepository.setPlaylist("pl-confirm", playlist)
+        fakeRepository.deletePlaylistResult = Result.success(Unit)
+
+        val viewModel = createViewModel("pl-confirm")
+        advanceUntilIdle()
+
+        viewModel.deletePlaylist {}
+        advanceUntilIdle()
+
+        // lastDeletedKey is only set once and matches our playlist key
+        assertEquals("pl-confirm", fakeRepository.lastDeletedKey)
+    }
+
+    @Test
+    fun deleteSuccessCallsCompletionWithTrue() = runTest(testDispatcher) {
+        fakeRepository.deletePlaylistResult = Result.success(Unit)
+
+        val viewModel = createViewModel("pl-success")
+        advanceUntilIdle()
+
+        var callbackResult: Boolean? = null
+        viewModel.deletePlaylist { success -> callbackResult = success }
+        advanceUntilIdle()
+
+        assertEquals(true, callbackResult)
+    }
+
+    @Test
+    fun deleteFailureCallsCompletionWithFalse() = runTest(testDispatcher) {
+        fakeRepository.deletePlaylistResult = Result.failure(Exception("Server error"))
+
+        val viewModel = createViewModel("pl-fail")
+        advanceUntilIdle()
+
+        var callbackResult: Boolean? = null
+        viewModel.deletePlaylist { success -> callbackResult = success }
+        advanceUntilIdle()
+
+        assertEquals(false, callbackResult)
+    }
+
+    @Test
+    fun canDeleteIsFalseForFolderPlaylist() = runTest(testDispatcher) {
+        val folderPlaylist = Playlist(
+            id = "folder-1",
+            title = "Rock Folder",
+            kind = PlaylistKind.FOLDER,
+            owner = "current_user"
+        )
+        fakeRepository.setPlaylist("folder-1", folderPlaylist)
+
+        val viewModel = createViewModel("folder-1")
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.canDelete)
+    }
+
+    @Test
+    fun canDeleteIsFalseForFavoritesPlaylist() = runTest(testDispatcher) {
+        val favPlaylist = Playlist(
+            id = "fav-1",
+            title = "Favorites",
+            kind = PlaylistKind.FAVORITES,
+            owner = "current_user"
+        )
+        fakeRepository.setPlaylist("fav-1", favPlaylist)
+
+        val viewModel = createViewModel("fav-1")
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.canDelete)
+    }
+
+    @Test
+    fun canDeleteIsTrueForOwnedRegularPlaylist() = runTest(testDispatcher) {
+        val ownedPlaylist = Playlist(
+            id = "owned-1",
+            title = "My Playlist",
+            kind = PlaylistKind.PERSONAL,
+            owner = "current_user"
+        )
+        fakeRepository.setPlaylist("owned-1", ownedPlaylist)
+
+        val viewModel = createViewModel("owned-1")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.canDelete)
+    }
+
+    @Test
+    fun canDeleteIsFalseForNonOwnerPlaylist() = runTest(testDispatcher) {
+        // fakePreferences is already set with role "user" (not admin) in setUp()
+        val otherPlaylist = Playlist(
+            id = "other-1",
+            title = "Someone Else's Mix",
+            kind = PlaylistKind.PERSONAL,
+            owner = "another_user",
+            visibility = "public"
+        )
+        fakeRepository.setPlaylist("other-1", otherPlaylist)
+
+        val viewModel = createViewModel("other-1")
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.canDelete)
+    }
 }
 
 // -------------------------------------------------------------
@@ -583,9 +719,11 @@ open class FakeMusicRepository : MusicRepository {
         return Result.success(Unit)
     }
 
+    var deletePlaylistResult: Result<Unit> = Result.success(Unit)
+
     override suspend fun deletePlaylist(playlistKey: String): Result<Unit> {
         lastDeletedKey = playlistKey
-        return Result.success(Unit)
+        return deletePlaylistResult
     }
 
     override suspend fun clonePlaylist(

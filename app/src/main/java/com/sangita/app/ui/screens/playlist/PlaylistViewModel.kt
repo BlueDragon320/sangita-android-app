@@ -18,7 +18,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -27,6 +29,7 @@ data class PlaylistUiState(
     val tracks: List<Track> = emptyList(),
     val isLoading: Boolean = false,
     val isOwner: Boolean = false,
+    val canDelete: Boolean = false,
     val isSaved: Boolean = false,
     val unavailableCount: Int = 0,
     val userMessage: String? = null
@@ -48,6 +51,12 @@ class PlaylistViewModel(
     val token: String? get() = userPreferences.getToken()
     val playbackState: StateFlow<com.sangita.app.domain.model.PlaybackState> = playbackController?.playbackState
         ?: MutableStateFlow(com.sangita.app.domain.model.PlaybackState())
+
+    val currentPlayingTrackId: StateFlow<String?> = playbackController?.playbackState
+        ?.map { it.currentTrack?.id }
+        ?.distinctUntilChanged()
+        ?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        ?: MutableStateFlow(null)
 
     val isOnline: StateFlow<Boolean> = connectivityObserver?.observe()
         ?.stateIn(viewModelScope, SharingStarted.Eagerly, connectivityObserver.isOnline)
@@ -174,6 +183,7 @@ class PlaylistViewModel(
             tracks = tr,
             isLoading = loading,
             isOwner = owner,
+            canDelete = computeCanDelete(pl),
             isSaved = saved,
             unavailableCount = unavail,
             userMessage = message
@@ -185,7 +195,15 @@ class PlaylistViewModel(
     )
 
     val isOwner: Boolean get() = uiState.value.isOwner
+    val canDelete: Boolean get() = uiState.value.canDelete
     val unavailableCount: Int get() = uiState.value.unavailableCount
+
+    private fun computeCanDelete(pl: Playlist?): Boolean {
+        if (pl == null) return false                      // no playlist loaded – can't delete
+        if (pl.isFolder) return false                     // folder playlists not deletable
+        if (pl.isFavorites) return false                  // Favorites not deletable
+        return computeIsOwner(pl)                         // only owners/admins of regular playlists
+    }
 
     private fun computeIsOwner(pl: Playlist?): Boolean {
         if (isAdmin) return true

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -46,6 +47,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import com.sangita.app.domain.model.Track
 import com.sangita.app.sync.SyncedDevice
@@ -524,7 +527,6 @@ class AccessibilitySemanticsTest {
                 token = null,
                 isPlayingThisTrack = true,
                 onClick = {},
-                onMenuClick = {},
                 modifier = Modifier.testTag("track_row")
             )
         }
@@ -540,6 +542,35 @@ class AccessibilitySemanticsTest {
             .assertExists()
             .assertWidthIsAtLeast(48.dp)
             .assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test
+    fun playlistSongMenuCombinesActionsAndClosesAfterSelection() {
+        var removed = false
+        val track = Track(id = "song.mp3", title = "Song", artist = "Artist")
+        composeTestRule.setContent {
+            TrackItemRow(
+                track = track,
+                onDownloadClick = {},
+                onDeleteDownload = {},
+                onToggleFavorite = {},
+                onToggleSave = {},
+                onAddToPlaylist = {},
+                extraMenuItems = { closeMenu ->
+                    DropdownMenuItem(text = { Text("Remove from playlist") }, onClick = {
+                        closeMenu()
+                        removed = true
+                    })
+                }
+            )
+        }
+        composeTestRule.onNodeWithContentDescription("More options for Song").performClick()
+        composeTestRule.onNodeWithText("Download song").assertExists()
+        composeTestRule.onNodeWithText("Add to playlist").assertExists()
+        composeTestRule.onNodeWithText("Remove from playlist").performScrollTo()
+            .performSemanticsAction(SemanticsActions.OnClick)
+        composeTestRule.runOnIdle { org.junit.Assert.assertTrue(removed) }
+        composeTestRule.onNodeWithText("Download song").assertDoesNotExist()
     }
 
     @Test
@@ -679,7 +710,7 @@ class AccessibilitySemanticsTest {
         composeTestRule.setContent {
             TrackItemRow(track = track)
         }
-        composeTestRule.onNodeWithContentDescription("Downloaded offline").assertExists()
+        composeTestRule.onNodeWithContentDescription("Downloaded offline").assertDoesNotExist()
         composeTestRule.onNodeWithContentDescription("Favorite").assertDoesNotExist()
     }
 
@@ -697,6 +728,6 @@ class AccessibilitySemanticsTest {
             TrackItemRow(track = track)
         }
         composeTestRule.onNodeWithContentDescription("Favorite").assertExists()
-        composeTestRule.onNodeWithContentDescription("Downloaded offline").assertExists()
+        composeTestRule.onNodeWithContentDescription("Downloaded offline").assertDoesNotExist()
     }
 }

@@ -28,6 +28,14 @@ android {
                 "proguard-rules.pro"
             )
         }
+        // In-place local testing with release-like Compose performance.
+        // This uses the developer's debug key and is not a distribution build.
+        create("performance") {
+            initWith(getByName("release"))
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
 
     compileOptions {
