@@ -177,11 +177,10 @@ fun HomeScreen(
                                         .border(1.dp, colors.border, RoundedCornerShape(8.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_sangita_brand_logo),
+                                    Image(
+                                        painter = painterResource(id = R.drawable.logo),
                                         contentDescription = "Sangita Logo",
-                                        tint = colors.textPrimary,
-                                        modifier = Modifier.size(19.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
