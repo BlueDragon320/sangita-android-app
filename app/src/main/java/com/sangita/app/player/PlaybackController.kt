@@ -294,6 +294,15 @@ class PlaybackController(
                 mediaController?.pause()
                 Log.d("PlaybackController", "Paused local playback because active device switched to $otherDeviceId")
             }
+            val activeDeviceName = deviceSyncManager.devices.value
+                .find { it.deviceId == otherDeviceId }?.deviceName ?: "Web Browser"
+            _playbackState.update {
+                it.copy(
+                    isActiveDevice = false,
+                    activeDeviceName = activeDeviceName,
+                    isPlaying = state.isPlaying
+                )
+            }
         }
     }
 
@@ -562,9 +571,8 @@ class PlaybackController(
                 isPlaying = true,
                 isLoop = _playbackState.value.repeatMode != RepeatMode.OFF,
                 isShuffle = _playbackState.value.shuffleModeEnabled,
-                // Publish the selected song directly when taking over. A transfer
-                // request here generates another handoff and can replay stale songs.
-                forceClaim = forceLocal || currentActiveId != myId
+                // Publish the selected song directly when taking over.
+                forceClaim = true
             )
         }
     }

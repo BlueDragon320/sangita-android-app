@@ -81,6 +81,8 @@ import coil.request.ImageRequest
 import com.sangita.app.data.remote.dto.ArtistDto
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.ui.components.MiniPlayer
+import com.sangita.app.ui.components.NavTab
+import com.sangita.app.ui.components.SangitaBottomNavBar
 import com.sangita.app.ui.screens.library.PlaylistThumbnail
 import com.sangita.app.ui.theme.SangitaColors
 import com.sangita.app.ui.theme.SangitaThemeColors
@@ -230,6 +232,18 @@ fun DiscoverScreen(
                     )
                 }
 
+                SangitaBottomNavBar(
+                    currentTab = NavTab.DISCOVER,
+                    onTabSelected = { tab ->
+                        when (tab) {
+                            NavTab.HOME -> onNavigateToHome()
+                            NavTab.DISCOVER -> {}
+                            NavTab.LIBRARY -> onNavigateToLibrary()
+                            NavTab.DOWNLOADS -> onNavigateToDownloads()
+                            else -> {}
+                        }
+                    }
+                )
             }
         }
     ) { innerPadding ->
