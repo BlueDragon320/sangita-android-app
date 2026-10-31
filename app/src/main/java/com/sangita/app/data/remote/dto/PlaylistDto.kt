@@ -14,7 +14,8 @@ data class PlaylistDto(
     @SerialName("track_count") val trackCount: Int = 0,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
-    @SerialName("is_saved") val isSaved: Boolean = false
+    @SerialName("is_saved") val isSaved: Boolean = false,
+    @SerialName("cover_track_path") val coverTrackPath: String? = null
 )
 
 @Serializable

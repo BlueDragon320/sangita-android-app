@@ -122,9 +122,23 @@ class DiscoverViewModel(
                     }
                 }
 
+                val communityWithCovers = loadedCommunity.map { pl ->
+                    if (pl.coverTrackPath.isNullOrBlank() && pl.trackCount > 0) {
+                        try {
+                            val detail = musicRepository.getPlaylistDetail(pl.id).getOrNull()
+                            val covers = detail?.tracks?.take(4)?.mapNotNull { it.trackPath }?.joinToString(",")
+                            if (!covers.isNullOrBlank()) pl.copy(coverTrackPath = covers) else pl
+                        } catch (_: Exception) {
+                            pl
+                        }
+                    } else {
+                        pl
+                    }
+                }
+
                 rawArtists = loadedArtists
                 rawFolderPlaylists = loadedFolders
-                rawCommunityPlaylists = loadedCommunity
+                rawCommunityPlaylists = communityWithCovers
 
                 val hasFailure = artistsRes.isFailure && foldersRes.isFailure && communityRes.isFailure
                 val isEmptyResult = loadedArtists.isEmpty() && loadedFolders.isEmpty() && loadedCommunity.isEmpty()

@@ -1081,20 +1081,18 @@ fun PlaylistThumbnail(
 
     Box(
         modifier = modifier
-            .size(48.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(colors.cardHover)
     ) {
         if (covers.size >= 4) {
-            // Fixed 24dp quadrants (zero double-pass measurement for 120 FPS scrolling)
-            Column(modifier = Modifier.size(48.dp)) {
-                Row(modifier = Modifier.size(width = 48.dp, height = 24.dp)) {
-                    ThumbnailQuadrant(trackId = covers[0], serverUrl = serverUrl, token = token, modifier = Modifier.size(24.dp))
-                    ThumbnailQuadrant(trackId = covers[1], serverUrl = serverUrl, token = token, modifier = Modifier.size(24.dp))
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    ThumbnailQuadrant(trackId = covers[0], serverUrl = serverUrl, token = token, modifier = Modifier.weight(1f).fillMaxHeight())
+                    ThumbnailQuadrant(trackId = covers[1], serverUrl = serverUrl, token = token, modifier = Modifier.weight(1f).fillMaxHeight())
                 }
-                Row(modifier = Modifier.size(width = 48.dp, height = 24.dp)) {
-                    ThumbnailQuadrant(trackId = covers[2], serverUrl = serverUrl, token = token, modifier = Modifier.size(24.dp))
-                    ThumbnailQuadrant(trackId = covers[3], serverUrl = serverUrl, token = token, modifier = Modifier.size(24.dp))
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    ThumbnailQuadrant(trackId = covers[2], serverUrl = serverUrl, token = token, modifier = Modifier.weight(1f).fillMaxHeight())
+                    ThumbnailQuadrant(trackId = covers[3], serverUrl = serverUrl, token = token, modifier = Modifier.weight(1f).fillMaxHeight())
                 }
             }
         } else if (covers.isNotEmpty()) {
@@ -1129,17 +1127,22 @@ private fun ThumbnailQuadrant(
     val request = remember(coverModel) {
         ImageRequest.Builder(context)
             .data(coverModel)
-            .size(96, 96)
+            .size(256, 256)
             .crossfade(false)
             .build()
     }
 
-    AsyncImage(
-        model = request,
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = modifier
-    )
+    Box(
+        modifier = modifier.background(SangitaThemeColors.current.cardHover),
+        contentAlignment = Alignment.Center
+    ) {
+        AsyncImage(
+            model = request,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 @Composable

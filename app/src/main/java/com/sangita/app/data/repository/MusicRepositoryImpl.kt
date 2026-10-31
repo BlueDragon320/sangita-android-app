@@ -401,8 +401,14 @@ class MusicRepositoryImpl(
             val resp = api.getPlaylists(discover = true)
             if (resp.isSuccessful && resp.body() != null) {
                 val dtos = resp.body()!!.playlists
+                val localMap = try {
+                    playlistDao.getAllPlaylists(accountKey).associateBy { it.serverId ?: it.localKey }
+                } catch (_: Exception) {
+                    emptyMap<String, PlaylistEntity>()
+                }
                 val mapped = dtos.map { dto ->
                     val isSaved = userPreferences.isPlaylistSaved(dto.id) || dto.isSaved
+                    val local = localMap[dto.id]
                     Playlist(
                         id = dto.id,
                         serverId = dto.id,
@@ -412,7 +418,7 @@ class MusicRepositoryImpl(
                         visibility = dto.visibility,
                         description = dto.description,
                         trackCount = dto.trackCount,
-                        coverTrackPath = null,
+                        coverTrackPath = dto.coverTrackPath ?: local?.coverTrackPath,
                         unavailableCount = 0,
                         isAvailable = true,
                         syncState = PlaylistSyncState.SYNCED,
