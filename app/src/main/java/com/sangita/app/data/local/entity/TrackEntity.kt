@@ -54,7 +54,7 @@ data class TrackEntity(
     @ColumnInfo(name = "album", defaultValue = "''")
     val album: String = ""
 ) {
-    fun toDomain(): Track = Track(
+    fun toDomain(isAvailable: Boolean = true): Track = Track(
         id = id,
         title = title,
         artist = artist,
@@ -67,7 +67,8 @@ data class TrackEntity(
         downloadProgress = downloadProgress,
         fileSizeBytes = fileSizeBytes,
         isFavorite = isFavorite,
-        album = album
+        album = album,
+        isAvailable = isAvailable
     )
 
     companion object {

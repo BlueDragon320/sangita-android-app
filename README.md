@@ -17,11 +17,11 @@
 
 | Platform | Download Link | Description |
 |:---|:---|:---|
-| 📱 **Android Phone / Tablet** | [**Download Sangita-v1.0.0.apk**](./releases/Sangita-v1.0.0.apk) | Direct installable APK for Android (API 26 to 35+). Supports background playback and offline mode. |
+| 📱 **Android Phone / Tablet** | [**Download Sangita-1.2.apk**](./releases/Sangita-1.2.apk) | Direct installable APK for Android (API 26 to 35+). Supports background playback and offline mode. |
 | 💻 **Windows Desktop** | [**Download Sangita-Desktop.exe**](./releases/Sangita-Desktop.exe) | Portable, standalone Windows desktop client. Double-click to run without any installation. |
 
 ### How to Install on Android
-1. Download [**`Sangita-v1.0.0.apk`**](./releases/Sangita-v1.0.0.apk) directly on your Android phone.
+1. Download [**`Sangita-1.2.apk`**](./releases/Sangita-1.2.apk) directly on your Android phone.
 2. Open the downloaded file from your Notifications or Downloads folder.
 3. If prompted by Android, tap **Settings** and enable **"Allow from this source"**.
 4. Tap **Install** and launch Sangita!

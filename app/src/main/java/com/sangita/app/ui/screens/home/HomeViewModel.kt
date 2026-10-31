@@ -225,6 +225,10 @@ class HomeViewModel(
     }
 
     fun logout(onLoggedOut: () -> Unit) {
+        musicRepository.clearMemoryCache()
+        deviceSyncManager?.disconnect()
+        deviceSyncManager?.resetSyncState()
+        playbackController.resetPlayback()
         userPreferences.clearAuth()
         onLoggedOut()
     }

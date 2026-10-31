@@ -12,9 +12,16 @@ data class SyncAction(
 )
 
 enum class SyncActionType {
-    TOGGLE_FAVORITE,
-    SET_FAVORITE,
     CREATE_PLAYLIST,
+    UPDATE_PLAYLIST,
+    DELETE_PLAYLIST,
+    ADD_TRACK,
+    REMOVE_TRACK,
+    CLONE_PLAYLIST,
+    TOGGLE_FAVORITE,
+
+    // Legacy / telemetry actions preserved for backwards compatibility
+    SET_FAVORITE,
     ADD_TRACK_TO_PLAYLIST,
     REMOVE_TRACK_FROM_PLAYLIST,
     PLAY_EVENT,

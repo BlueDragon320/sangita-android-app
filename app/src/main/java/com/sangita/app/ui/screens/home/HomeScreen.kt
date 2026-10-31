@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DataUsage
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -71,6 +72,8 @@ import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.DownloadQueueBottomSheet
 import com.sangita.app.ui.components.MiniPlayer
+import com.sangita.app.ui.components.NavTab
+import com.sangita.app.ui.components.SangitaBottomNavBar
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
 import com.sangita.app.ui.theme.AmbientAuraBlue
@@ -115,6 +118,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onNavigateToLibrary: () -> Unit,
     onNavigateToDownloads: () -> Unit,
+    onNavigateToDiscover: () -> Unit = {},
     onOpenFullPlayer: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -237,17 +241,31 @@ fun HomeScreen(
                 }
             },
             bottomBar = {
-                val miniPlaybackState by viewModel.playbackState.collectAsState()
-                if (miniPlaybackState.currentTrack != null) {
-                    MiniPlayer(
-                        playbackState = miniPlaybackState,
-                        serverUrl = viewModel.serverUrl,
-                        token = viewModel.token,
-                        onTogglePlayPause = viewModel.playbackController::togglePlayPause,
-                        onSkipPrevious = viewModel.playbackController::skipPrevious,
-                        onSkipNext = viewModel.playbackController::skipNext,
-                        onOpenDevices = viewModel::openDevicesSheet,
-                        onClick = onOpenFullPlayer
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    val miniPlaybackState by viewModel.playbackState.collectAsState()
+                    if (miniPlaybackState.currentTrack != null) {
+                        MiniPlayer(
+                            playbackState = miniPlaybackState,
+                            serverUrl = viewModel.serverUrl,
+                            token = viewModel.token,
+                            onTogglePlayPause = viewModel.playbackController::togglePlayPause,
+                            onSkipPrevious = viewModel.playbackController::skipPrevious,
+                            onSkipNext = viewModel.playbackController::skipNext,
+                            onOpenDevices = viewModel::openDevicesSheet,
+                            onClick = onOpenFullPlayer
+                        )
+                    }
+                    SangitaBottomNavBar(
+                        currentTab = NavTab.HOME,
+                        onTabSelected = { tab ->
+                            when (tab) {
+                                NavTab.HOME -> {}
+                                NavTab.DISCOVER -> onNavigateToDiscover()
+                                NavTab.LIBRARY -> onNavigateToLibrary()
+                                NavTab.DOWNLOADS -> onNavigateToDownloads()
+                                else -> {}
+                            }
+                        }
                     )
                 }
             },
@@ -360,9 +378,15 @@ fun HomeScreen(
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                // 2x Larger Library Card
+                                ActionNavCard(
+                                    title = "Discover",
+                                    icon = Icons.Default.Explore,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = onNavigateToDiscover
+                                )
+
                                 ActionNavCard(
                                     title = "Library",
                                     painter = painterResource(id = R.drawable.ic_folder_music),
@@ -370,7 +394,6 @@ fun HomeScreen(
                                     onClick = onNavigateToLibrary
                                 )
 
-                                // 2x Larger Storage / Data Usage Card
                                 ActionNavCard(
                                     title = dataUsageToday.ifBlank { "0 B" },
                                     icon = Icons.Default.DataUsage,

@@ -66,7 +66,9 @@ class AppContainer(val context: Context) {
         SyncRepositoryImpl(
             syncQueueDao = database.syncQueueDao(),
             playbackEventDao = database.playbackEventDao(),
-            networkClient = networkClient
+            networkClient = networkClient,
+            playlistDao = database.playlistDao(),
+            userPreferences = userPreferences
         )
     }
 

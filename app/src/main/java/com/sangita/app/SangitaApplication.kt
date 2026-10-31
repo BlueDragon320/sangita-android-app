@@ -33,11 +33,8 @@ class SangitaApplication : Application(), ImageLoaderFactory {
         container.applicationScope.launch(Dispatchers.Default) {
             container.userPreferences.tokenFlow.collectLatest { token ->
                 if (!token.isNullOrBlank()) {
-                    container.deviceSyncManager.connect()
                     SangitaSyncWorker.enqueueOneTime(this@SangitaApplication)
                     if (container.connectivityObserver.isOnline) container.downloadManager.resumeInterruptedDownloads()
-                } else {
-                    container.deviceSyncManager.disconnect()
                 }
             }
         }

@@ -2,13 +2,16 @@ package com.sangita.app.data.local.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.util.UUID
 
-class UserPreferences(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("sangita_prefs", Context.MODE_PRIVATE)
+open class UserPreferences(context: Context? = null) {
+    private val prefs: SharedPreferences? = context?.getSharedPreferences("sangita_prefs", Context.MODE_PRIVATE)
 
     private val _serverUrlFlow = MutableStateFlow(getServerUrl())
     val serverUrlFlow: StateFlow<String> = _serverUrlFlow.asStateFlow()
@@ -25,78 +28,130 @@ class UserPreferences(context: Context) {
     private val _lyricsThemeFlow = MutableStateFlow(getLyricsTheme())
     val lyricsThemeFlow: StateFlow<String> = _lyricsThemeFlow.asStateFlow()
 
-    fun getServerUrl(): String {
-        return prefs.getString(KEY_SERVER_URL, "") ?: ""
+    private val _savedPlaylistIdsFlow = MutableStateFlow<Set<String>>(emptySet())
+    val savedPlaylistIdsFlow: StateFlow<Set<String>> = _savedPlaylistIdsFlow.asStateFlow()
+
+    private var _defaultAccountMigrated: Boolean = false
+
+    init {
+        _defaultAccountMigrated = prefs?.getBoolean(KEY_DEFAULT_ACCOUNT_MIGRATED, false) ?: false
+        prefs?.getStringSet(KEY_SAVED_PLAYLISTS, null)?.let {
+            _savedPlaylistIdsFlow.value = it.toSet()
+        }
     }
 
-    fun setServerUrl(url: String): String {
+    open fun getServerUrl(): String {
+        return prefs?.getString(KEY_SERVER_URL, null) ?: _serverUrlFlow?.value ?: ""
+    }
+
+    open fun setServerUrl(url: String): String {
         val normalized = normalizeUrl(url)
-        prefs.edit().putString(KEY_SERVER_URL, normalized).apply()
+        prefs?.edit()?.putString(KEY_SERVER_URL, normalized)?.apply()
         _serverUrlFlow.value = normalized
         return normalized
     }
 
-    fun getToken(): String? {
-        return prefs.getString(KEY_TOKEN, null)
+    open fun getToken(): String? {
+        return prefs?.getString(KEY_TOKEN, null) ?: _tokenFlow?.value
     }
 
-    fun setToken(token: String?) {
-        prefs.edit().putString(KEY_TOKEN, token).apply()
+    open fun setToken(token: String?) {
+        prefs?.edit()?.putString(KEY_TOKEN, token)?.apply()
         _tokenFlow.value = token
     }
 
-    fun getUsername(): String? {
-        return prefs.getString(KEY_USERNAME, null)
+    open fun getUsername(): String? {
+        return prefs?.getString(KEY_USERNAME, null) ?: _usernameFlow?.value
     }
 
-    fun setUsername(username: String?) {
-        prefs.edit().putString(KEY_USERNAME, username).apply()
+    open fun setUsername(username: String?) {
+        prefs?.edit()?.putString(KEY_USERNAME, username)?.apply()
         _usernameFlow.value = username
     }
 
-    fun getRole(): String {
-        return prefs.getString(KEY_ROLE, "user") ?: "user"
+    open fun getAccountKey(): String {
+        val server = getServerUrl().trimEnd('/')
+        val user = getUsername()?.trim()?.lowercase().orEmpty()
+        return if (server.isNotBlank() && user.isNotBlank()) "$server|$user" else "default_account"
     }
 
-    fun setRole(role: String) {
-        prefs.edit().putString(KEY_ROLE, role).apply()
+    open fun observeAccountKey(): Flow<String> = combine(serverUrlFlow, usernameFlow) { server, user ->
+        val cleanServer = server.trimEnd('/')
+        val cleanUser = user?.trim()?.lowercase().orEmpty()
+        if (cleanServer.isNotBlank() && cleanUser.isNotBlank()) "$cleanServer|$cleanUser" else "default_account"
+    }.distinctUntilChanged()
+
+    open fun getRole(): String {
+        return prefs?.getString(KEY_ROLE, "user") ?: "user"
     }
 
-    fun getTheme(): String {
-        return prefs.getString(KEY_THEME, THEME_DARK) ?: THEME_DARK
+    open fun setRole(role: String) {
+        prefs?.edit()?.putString(KEY_ROLE, role)?.apply()
     }
 
-    fun setTheme(theme: String) {
-        prefs.edit().putString(KEY_THEME, theme).apply()
+    open fun getTheme(): String {
+        return prefs?.getString(KEY_THEME, THEME_DARK) ?: THEME_DARK
+    }
+
+    open fun setTheme(theme: String) {
+        prefs?.edit()?.putString(KEY_THEME, theme)?.apply()
         _themeFlow.value = theme
     }
 
-    fun getLyricsTheme(): String {
-        return prefs.getString(KEY_LYRICS_THEME, "black") ?: "black"
+    open fun getLyricsTheme(): String {
+        return prefs?.getString(KEY_LYRICS_THEME, "black") ?: "black"
     }
 
-    fun setLyricsTheme(theme: String) {
-        prefs.edit().putString(KEY_LYRICS_THEME, theme).apply()
+    open fun setLyricsTheme(theme: String) {
+        prefs?.edit()?.putString(KEY_LYRICS_THEME, theme)?.apply()
         _lyricsThemeFlow.value = theme
     }
 
-    fun getOrCreateDeviceId(): String {
-        var id = prefs.getString(KEY_DEVICE_ID, null)
+    open fun getSavedPlaylistIds(): Set<String> {
+        return prefs?.getStringSet(KEY_SAVED_PLAYLISTS, emptySet()) ?: _savedPlaylistIdsFlow.value
+    }
+
+    open fun setPlaylistSaved(playlistId: String, saved: Boolean) {
+        val current = getSavedPlaylistIds().toMutableSet()
+        if (saved) current.add(playlistId) else current.remove(playlistId)
+        prefs?.edit()?.putStringSet(KEY_SAVED_PLAYLISTS, current)?.apply()
+        _savedPlaylistIdsFlow.value = current
+    }
+
+    open fun isPlaylistSaved(playlistId: String): Boolean {
+        return getSavedPlaylistIds().contains(playlistId)
+    }
+
+    open fun observeSavedPlaylistIds(): Flow<Set<String>> = _savedPlaylistIdsFlow.asStateFlow()
+
+    open fun getOrCreateDeviceId(): String {
+        var id = prefs?.getString(KEY_DEVICE_ID, null)
         if (id.isNullOrBlank()) {
             id = UUID.randomUUID().toString()
-            prefs.edit().putString(KEY_DEVICE_ID, id).apply()
+            prefs?.edit()?.putString(KEY_DEVICE_ID, id)?.apply()
         }
         return id
     }
 
-    fun clearAuth() {
-        prefs.edit()
-            .remove(KEY_TOKEN)
-            .remove(KEY_USERNAME)
-            .remove(KEY_ROLE)
-            .apply()
+    open fun isInitialDefaultAccountMigrated(): Boolean {
+        return prefs?.getBoolean(KEY_DEFAULT_ACCOUNT_MIGRATED, false) ?: _defaultAccountMigrated
+    }
+
+    open fun setInitialDefaultAccountMigrated(migrated: Boolean) {
+        prefs?.edit()?.putBoolean(KEY_DEFAULT_ACCOUNT_MIGRATED, migrated)?.apply()
+        _defaultAccountMigrated = migrated
+    }
+
+    open fun clearAuth() {
+        prefs?.edit()
+            ?.remove(KEY_TOKEN)
+            ?.remove(KEY_USERNAME)
+            ?.remove(KEY_ROLE)
+            ?.remove(KEY_SAVED_PLAYLISTS)
+            ?.apply()
         _tokenFlow.value = null
         _usernameFlow.value = null
+        _savedPlaylistIdsFlow.value = emptySet()
     }
 
     companion object {
@@ -107,6 +162,8 @@ class UserPreferences(context: Context) {
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_THEME = "app_theme"
         private const val KEY_LYRICS_THEME = "lyrics_theme"
+        private const val KEY_SAVED_PLAYLISTS = "saved_playlist_ids"
+        private const val KEY_DEFAULT_ACCOUNT_MIGRATED = "default_account_migrated"
 
         const val THEME_AMOLED = "amoled"
         const val THEME_DARK = "dark"

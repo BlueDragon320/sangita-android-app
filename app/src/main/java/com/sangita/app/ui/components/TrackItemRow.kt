@@ -8,6 +8,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -93,15 +95,18 @@ fun TrackItemRow(
         ImageRequest.Builder(context)
             .data(coverModel)
             .size(128, 128)
+            .crossfade(false)
             .build()
     }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .alpha(if (track.isAvailable) 1f else 0.5f)
             .clip(RoundedCornerShape(8.dp))
             .background(if (isPlayingThisTrack) colors.elevated.copy(alpha = 0.5f) else Color.Transparent)
             .combinedClickable(
+                enabled = track.isAvailable,
                 onClick = { onClick() },
                 onLongClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -164,14 +169,43 @@ fun TrackItemRow(
                 fontSize = 14.sp
             )
             Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = track.artist.ifBlank { track.playlist },
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.textSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = 12.sp
-            )
+            if (!track.isAvailable) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(colors.border)
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = "Unavailable",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = colors.textMuted
+                        )
+                    }
+                    Text(
+                        text = track.artist.ifBlank { track.playlist },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 12.sp
+                    )
+                }
+            } else {
+                Text(
+                    text = track.artist.ifBlank { track.playlist },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 12.sp
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(10.dp))

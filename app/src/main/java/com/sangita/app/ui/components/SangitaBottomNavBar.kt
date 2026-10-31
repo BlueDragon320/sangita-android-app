@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Person
@@ -35,7 +38,7 @@ import com.sangita.app.ui.theme.SangitaSurface
 import com.sangita.app.ui.theme.SangitaTextDim
 
 enum class NavTab {
-    HOME, SEARCH, LIBRARY, PROFILE
+    HOME, DISCOVER, LIBRARY, DOWNLOADS, SEARCH, PROFILE
 }
 
 @Composable
@@ -61,10 +64,10 @@ fun SangitaBottomNavBar(
             onClick = { onTabSelected(NavTab.HOME) }
         )
         BottomNavItem(
-            label = "Search",
-            icon = Icons.Default.Search,
-            isSelected = currentTab == NavTab.SEARCH,
-            onClick = { onTabSelected(NavTab.SEARCH) }
+            label = "Discover",
+            icon = Icons.Default.Explore,
+            isSelected = currentTab == NavTab.DISCOVER,
+            onClick = { onTabSelected(NavTab.DISCOVER) }
         )
         BottomNavItem(
             label = "Library",
@@ -73,10 +76,10 @@ fun SangitaBottomNavBar(
             onClick = { onTabSelected(NavTab.LIBRARY) }
         )
         BottomNavItem(
-            label = "Profile",
-            icon = Icons.Default.Person,
-            isSelected = currentTab == NavTab.PROFILE,
-            onClick = { onTabSelected(NavTab.PROFILE) }
+            label = "Downloads",
+            icon = Icons.Default.Download,
+            isSelected = currentTab == NavTab.DOWNLOADS,
+            onClick = { onTabSelected(NavTab.DOWNLOADS) }
         )
     }
 }
@@ -93,9 +96,10 @@ private fun BottomNavItem(
 
     Column(
         modifier = Modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 14.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

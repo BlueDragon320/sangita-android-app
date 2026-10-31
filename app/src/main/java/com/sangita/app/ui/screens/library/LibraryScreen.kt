@@ -37,9 +37,14 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +54,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -58,7 +65,11 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import com.sangita.app.ui.dialogs.RecoverLegacyPlaylistsDialog
+import com.sangita.app.ui.theme.SangitaEmerald
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,11 +85,15 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sangita.app.domain.model.Playlist
+import com.sangita.app.domain.model.PlaylistSyncState
 import com.sangita.app.domain.model.Track
+import com.sangita.app.ui.dialogs.CreatePlaylistDialog
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.DownloadQueueBottomSheet
 import com.sangita.app.ui.components.DownloadQueueIconButton
 import com.sangita.app.ui.components.MiniPlayer
+import com.sangita.app.ui.components.NavTab
+import com.sangita.app.ui.components.SangitaBottomNavBar
 import com.sangita.app.ui.components.SettingsBottomSheet
 import com.sangita.app.ui.components.TrackItemRow
 import com.sangita.app.ui.theme.SangitaThemeColors
@@ -91,6 +106,8 @@ private val LikedMusicMagenta = Color(0xFFD946EF)
 fun LibraryScreen(
     viewModel: LibraryViewModel,
     onPlaylistClick: (String) -> Unit,
+    onNavigateToHome: () -> Unit = {},
+    onNavigateToDiscover: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
     onBackClick: () -> Unit = {},
     onOpenFullPlayer: () -> Unit,
@@ -105,6 +122,9 @@ fun LibraryScreen(
     val activeDownloads by viewModel.activeDownloads.collectAsState()
     val activeDownloadsCount by viewModel.activeDownloadsCount.collectAsState()
     val totalDownloadSpeed by viewModel.totalDownloadSpeed.collectAsState()
+    val recoverablePlaylists by viewModel.recoverableLegacyPlaylists.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var showDevicesSheet by remember { mutableStateOf(false) }
 
     val colors = SangitaThemeColors.current
@@ -119,6 +139,7 @@ fun LibraryScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column(
                 modifier = Modifier
@@ -296,17 +317,31 @@ fun LibraryScreen(
             }
         },
         bottomBar = {
-            val miniPlaybackState by viewModel.playbackState.collectAsState()
-            if (miniPlaybackState.currentTrack != null) {
-                MiniPlayer(
-                    playbackState = miniPlaybackState,
-                    serverUrl = viewModel.serverUrl,
-                    token = viewModel.token,
-                    onTogglePlayPause = viewModel.playbackController::togglePlayPause,
-                    onSkipPrevious = viewModel.playbackController::skipPrevious,
-                    onSkipNext = viewModel.playbackController::skipNext,
-                    onOpenDevices = { showDevicesSheet = true },
-                    onClick = onOpenFullPlayer
+            Column(modifier = Modifier.fillMaxWidth()) {
+                val miniPlaybackState by viewModel.playbackState.collectAsState()
+                if (miniPlaybackState.currentTrack != null) {
+                    MiniPlayer(
+                        playbackState = miniPlaybackState,
+                        serverUrl = viewModel.serverUrl,
+                        token = viewModel.token,
+                        onTogglePlayPause = viewModel.playbackController::togglePlayPause,
+                        onSkipPrevious = viewModel.playbackController::skipPrevious,
+                        onSkipNext = viewModel.playbackController::skipNext,
+                        onOpenDevices = { showDevicesSheet = true },
+                        onClick = onOpenFullPlayer
+                    )
+                }
+                SangitaBottomNavBar(
+                    currentTab = NavTab.LIBRARY,
+                    onTabSelected = { tab ->
+                        when (tab) {
+                            NavTab.HOME -> onNavigateToHome()
+                            NavTab.DISCOVER -> onNavigateToDiscover()
+                            NavTab.LIBRARY -> {}
+                            NavTab.DOWNLOADS -> onNavigateToDownloads()
+                            else -> {}
+                        }
+                    }
                 )
             }
         },
@@ -354,7 +389,7 @@ fun LibraryScreen(
 
                         items(
                             items = filteredPlaylists,
-                            key = { "playlist_${it.name}" },
+                            key = { "playlist_${it.id}" },
                             contentType = { "playlist" }
                         ) { playlist ->
                             PlaylistItemRow(
@@ -362,7 +397,7 @@ fun LibraryScreen(
                                 username = viewModel.username,
                                 serverUrl = viewModel.serverUrl,
                                 token = viewModel.token,
-                                onClick = { onPlaylistClick(playlist.name) },
+                                onClick = { onPlaylistClick(playlist.id) },
                                 onDownloadAll = { viewModel.downloadPlaylist(playlist) }
                             )
                         }
@@ -400,13 +435,31 @@ fun LibraryScreen(
                     }
                 }
             } else {
+                // Recoverable offline playlists banner
+                if (recoverablePlaylists.isNotEmpty()) {
+                    item(key = "recoverable_legacy_banner") {
+                        LegacyRecoveryBanner(
+                            count = recoverablePlaylists.size,
+                            onInspect = viewModel::openRecoveryDialog,
+                            onRecoverAll = {
+                                viewModel.recoverAllLegacyPlaylists { count ->
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Recovered $count offline playlist${if (count == 1) "" else "s"}")
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+
                 // First Item: 'Liked music' (pinned auto playlist)
                 item(key = "liked_music", contentType = "pinned_playlist") {
+                    val favPlaylist = filteredPlaylists.firstOrNull { it.isFavorites }
                     LikedMusicRow(
-                        onClick = { onPlaylistClick("Favorites") },
+                        onClick = { onPlaylistClick(favPlaylist?.id ?: "Favorites") },
                         onDownloadAll = {
                             viewModel.downloadPlaylist(
-                                Playlist(name = "Favorites", isFavorites = true)
+                                favPlaylist ?: Playlist(name = "Favorites", isFavorites = true)
                             )
                         }
                     )
@@ -415,7 +468,7 @@ fun LibraryScreen(
                 // Regular Playlists:
                 items(
                     items = regularPlaylists,
-                    key = { it.name },
+                    key = { it.id },
                     contentType = { "playlist" }
                 ) { playlist ->
                     PlaylistItemRow(
@@ -423,7 +476,7 @@ fun LibraryScreen(
                         username = viewModel.username,
                         serverUrl = viewModel.serverUrl,
                         token = viewModel.token,
-                        onClick = { onPlaylistClick(playlist.name) },
+                        onClick = { onPlaylistClick(playlist.id) },
                         onDownloadAll = { viewModel.downloadPlaylist(playlist) }
                     )
                 }
@@ -432,43 +485,35 @@ fun LibraryScreen(
 
         // Create Playlist Dialog
         if (uiState.showCreateDialog) {
-            AlertDialog(
-                onDismissRequest = viewModel::closeCreateDialog,
-                title = {
-                    Text(
-                        text = "New Playlist",
-                        fontWeight = FontWeight.Bold,
-                        color = colors.textPrimary
-                    )
-                },
-                text = {
-                    OutlinedTextField(
-                        value = uiState.newPlaylistName,
-                        onValueChange = viewModel::onNewPlaylistNameChange,
-                        placeholder = { Text("Playlist name", color = colors.textMuted) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = colors.background,
-                            unfocusedContainerColor = colors.background,
-                            focusedBorderColor = colors.borderHi,
-                            unfocusedBorderColor = colors.border,
-                            focusedTextColor = colors.textPrimary,
-                            unfocusedTextColor = colors.textPrimary
-                        )
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = { viewModel.createPlaylist() }) {
-                        Text("Create", color = colors.accent, fontWeight = FontWeight.Bold)
+            CreatePlaylistDialog(
+                onDismiss = viewModel::closeCreateDialog,
+                onCreate = { title, description, isPublic ->
+                    viewModel.createPlaylist(title, description, isPublic)
+                }
+            )
+        }
+
+        // Recover Legacy Playlists Dialog
+        if (uiState.showRecoveryDialog && recoverablePlaylists.isNotEmpty()) {
+            RecoverLegacyPlaylistsDialog(
+                playlists = recoverablePlaylists,
+                onDismiss = viewModel::closeRecoveryDialog,
+                onRecoverSingle = { localKey ->
+                    viewModel.recoverLegacyPlaylist(localKey) { success ->
+                        if (success) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Playlist recovered to your library")
+                            }
+                        }
                     }
                 },
-                dismissButton = {
-                    TextButton(onClick = viewModel::closeCreateDialog) {
-                        Text("Cancel", color = colors.textMuted)
+                onRecoverAll = {
+                    viewModel.recoverAllLegacyPlaylists { count ->
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Recovered $count offline playlist${if (count == 1) "" else "s"}")
+                        }
                     }
-                },
-                containerColor = colors.card
+                }
             )
         }
 
@@ -675,24 +720,69 @@ fun PlaylistItemRow(
         Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = playlist.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = colors.textPrimary,
-                fontSize = 16.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = playlist.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.textPrimary,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
+                // Sync state badge
+                if (playlist.syncState != PlaylistSyncState.SYNCED) {
+                    when (playlist.syncState) {
+                        PlaylistSyncState.PENDING_CREATE, PlaylistSyncState.PENDING_UPDATE -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(12.dp),
+                                strokeWidth = 1.5.dp,
+                                color = colors.accent
+                            )
+                        }
+                        PlaylistSyncState.ERROR, PlaylistSyncState.CONFLICT -> {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Sync issue",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        else -> Unit
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(2.dp))
+            val displayOwner = playlist.owner ?: username
+            val prefix = if (playlist.isPublic) "Public Playlist" else "Playlist"
             Text(
-                text = "Playlist • $username • ${playlist.trackCount} tracks",
+                text = "$prefix • $displayOwner • ${playlist.trackCount} tracks",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textSecondary,
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            val cleanDescription = playlist.description?.takeIf {
+                !it.trim().startsWith("Folder playlist for", ignoreCase = true)
+            }
+            if (!cleanDescription.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = cleanDescription,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textMuted,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         Box {
@@ -798,6 +888,7 @@ private fun ThumbnailQuadrant(
         ImageRequest.Builder(context)
             .data(coverModel)
             .size(96, 96)
+            .crossfade(false)
             .build()
     }
 
@@ -807,4 +898,80 @@ private fun ThumbnailQuadrant(
         contentScale = ContentScale.Crop,
         modifier = modifier
     )
+}
+
+@Composable
+private fun LegacyRecoveryBanner(
+    count: Int,
+    onInspect: () -> Unit,
+    onRecoverAll: () -> Unit
+) {
+    val colors = SangitaThemeColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(colors.cardHover)
+            .border(1.dp, colors.border, RoundedCornerShape(10.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Restore,
+                contentDescription = null,
+                tint = SangitaEmerald,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = "Recover Offline Playlists",
+                    color = colors.textPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "$count unassigned playlist${if (count == 1) "" else "s"} from prior version",
+                    color = colors.textMuted,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TextButton(
+                onClick = onInspect,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "Review",
+                    color = SangitaEmerald,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Button(
+                onClick = onRecoverAll,
+                shape = RoundedCornerShape(6.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SangitaEmerald,
+                    contentColor = colors.background
+                ),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.height(30.dp)
+            ) {
+                Text(
+                    text = "Recover All",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
 }

@@ -2,6 +2,7 @@ package com.sangita.app.ui.screens.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sangita.app.data.local.dao.PlaylistDao
 import com.sangita.app.data.local.preferences.UserPreferences
 import com.sangita.app.data.remote.api.NetworkClient
 import com.sangita.app.domain.model.Playlist
@@ -28,6 +29,7 @@ data class LibraryUiState(
     val isSearchActive: Boolean = false,
     val selectedFilter: String? = null,
     val showCreateDialog: Boolean = false,
+    val showRecoveryDialog: Boolean = false,
     val newPlaylistName: String = "",
     val isRefreshing: Boolean = false,
     val showSettingsSheet: Boolean = false,
@@ -47,7 +49,8 @@ class LibraryViewModel(
     val playbackController: PlaybackController,
     val downloadManager: SangitaDownloadManager,
     val deviceSyncManager: DeviceSyncManager? = null,
-    private val connectivityObserver: com.sangita.app.sync.NetworkConnectivityObserver
+    private val connectivityObserver: com.sangita.app.sync.NetworkConnectivityObserver,
+    private val playlistDao: PlaylistDao? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -81,36 +84,49 @@ class LibraryViewModel(
     val filteredPlaylists: StateFlow<List<Playlist>> = combine(
         musicRepository.observePlaylists(),
         musicRepository.observeDownloadedTracks(),
+        userPreferences.observeSavedPlaylistIds(),
         isOnline,
         _uiState
-    ) { allPlaylists, downloadedTracks, online, state ->
+    ) { allPlaylists, downloadedTracks, savedIds, online, state ->
         val query = state.searchQuery.trim()
+        val currentUsername = userPreferences.getUsername()
+
+        // Filter: user's own playlists, Favorites, and explicitly saved/added playlists
+        val libraryPlaylists = allPlaylists.filter { pl ->
+            pl.isFavorites ||
+                pl.isSaved ||
+                savedIds.contains(pl.id) ||
+                (pl.serverId != null && savedIds.contains(pl.serverId)) ||
+                (pl.owner != null && pl.owner.equals(currentUsername, ignoreCase = true)) ||
+                (pl.isPersonal && (pl.owner.isNullOrBlank() || pl.owner.equals(currentUsername, ignoreCase = true)))
+        }
+
         val basePlaylists = if (online) {
             when (state.selectedFilter) {
-                "Playlists" -> allPlaylists.filter { !it.isFavorites }
-                else -> allPlaylists
+                "Playlists" -> libraryPlaylists.filter { !it.isFavorites }
+                else -> libraryPlaylists
             }
         } else {
-            val downloadedByPlaylist = downloadedTracks.groupBy { it.playlist }
+            val downloadedIds = downloadedTracks.filter { it.isDownloaded }.map { it.id }.toSet()
             val offlineList = mutableListOf<Playlist>()
-            for (pl in allPlaylists) {
-                val dTracks = downloadedByPlaylist[pl.name] ?: emptyList()
+            for (pl in libraryPlaylists) {
+                val plTracks = if (pl.isFavorites) {
+                    musicRepository.observeFavorites().firstOrNull() ?: emptyList()
+                } else if (playlistDao != null) {
+                    playlistDao.observeTracksForPlaylist(pl.id).firstOrNull()?.map { it.toDomain() } ?: emptyList()
+                } else {
+                    musicRepository.observeTracks(pl.id).firstOrNull() ?: emptyList()
+                }
+                val dTracks = plTracks.filter { it.id in downloadedIds || it.isDownloaded }
                 if (dTracks.isNotEmpty()) {
                     offlineList.add(pl.copy(trackCount = dTracks.size, tracks = dTracks))
                 }
             }
-            val handledNames = offlineList.map { it.name }.toSet()
-            for ((name, dTracks) in downloadedByPlaylist) {
-                if (name !in handledNames && dTracks.isNotEmpty()) {
-                    offlineList.add(
-                        Playlist(
-                            name = name,
-                            isVirtual = false,
-                            isFavorites = name.equals("Favorites", ignoreCase = true),
-                            trackCount = dTracks.size,
-                            tracks = dTracks
-                        )
-                    )
+            if (offlineList.none { it.isFavorites }) {
+                val favTracks = musicRepository.observeFavorites().firstOrNull()
+                    ?.filter { it.id in downloadedIds || it.isDownloaded } ?: emptyList()
+                if (favTracks.isNotEmpty()) {
+                    offlineList.add(0, Playlist(name = "Favorites", isFavorites = true, trackCount = favTracks.size, tracks = favTracks))
                 }
             }
             offlineList
@@ -180,6 +196,21 @@ class LibraryViewModel(
     }
 
     fun onNewPlaylistNameChange(name: String) = setNewPlaylistName(name)
+
+    fun createPlaylist(
+        title: String,
+        description: String? = null,
+        isPublic: Boolean = false,
+        onSuccess: ((Playlist) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val result = musicRepository.createPlaylist(title = title, description = description, isPublic = isPublic)
+            if (result.isSuccess) {
+                closeCreateDialog()
+                result.getOrNull()?.let { onSuccess?.invoke(it) }
+            }
+        }
+    }
 
     fun createPlaylist(onSuccess: (String) -> Unit = {}) {
         val name = _uiState.value.newPlaylistName.trim()
@@ -291,6 +322,10 @@ class LibraryViewModel(
     }
 
     fun logout(onSuccess: () -> Unit) {
+        musicRepository.clearMemoryCache()
+        deviceSyncManager?.disconnect()
+        deviceSyncManager?.resetSyncState()
+        playbackController.resetPlayback()
         userPreferences.clearAuth()
         onSuccess()
     }
@@ -308,6 +343,35 @@ class LibraryViewModel(
     val activeDownloads = downloadManager.activeDownloads
     val activeDownloadsCount = downloadManager.activeDownloadsCount
     val totalDownloadSpeed = downloadManager.totalSpeedBytesPerSec
+
+    val recoverableLegacyPlaylists: StateFlow<List<Playlist>> = musicRepository.observeRecoverableLegacyPlaylists()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun openRecoveryDialog() {
+        _uiState.update { it.copy(showRecoveryDialog = true) }
+    }
+
+    fun closeRecoveryDialog() {
+        _uiState.update { it.copy(showRecoveryDialog = false) }
+    }
+
+    fun recoverLegacyPlaylist(localKey: String, onComplete: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true) }
+            val res = musicRepository.recoverLegacyPlaylist(localKey)
+            _uiState.update { it.copy(isRefreshing = false) }
+            onComplete?.invoke(res.isSuccess)
+        }
+    }
+
+    fun recoverAllLegacyPlaylists(onComplete: ((Int) -> Unit)? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true) }
+            val res = musicRepository.recoverAllLegacyPlaylists()
+            _uiState.update { it.copy(isRefreshing = false, showRecoveryDialog = false) }
+            onComplete?.invoke(res.getOrDefault(0))
+        }
+    }
 
     fun openDownloadSheet() {
         _uiState.update { it.copy(showDownloadSheet = true) }

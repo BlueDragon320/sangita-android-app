@@ -8,15 +8,19 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.sangita.app.SangitaApplication
+import com.sangita.app.ui.screens.artist.ArtistDetailScreen
+import com.sangita.app.ui.screens.artist.ArtistDetailViewModel
 import com.sangita.app.ui.screens.auth.LoginScreen
 import com.sangita.app.ui.screens.auth.LoginViewModel
+import com.sangita.app.ui.screens.discover.DiscoverScreen
+import com.sangita.app.ui.screens.discover.DiscoverViewModel
 import com.sangita.app.ui.screens.downloads.DownloadsScreen
 import com.sangita.app.ui.screens.downloads.DownloadsViewModel
 import com.sangita.app.ui.screens.home.HomeScreen
@@ -85,7 +89,7 @@ fun SangitaNavGraph(
         }
     ) {
         composable(Screen.Login.route) { backStackEntry ->
-            val loginVm = remember(backStackEntry) {
+            val loginVm = viewModel<LoginViewModel>(viewModelStoreOwner = backStackEntry) {
                 LoginViewModel(
                     userPreferences = container.userPreferences,
                     networkClient = container.networkClient,
@@ -103,7 +107,7 @@ fun SangitaNavGraph(
         }
 
         composable(Screen.Home.route) { backStackEntry ->
-            val homeVm = remember(backStackEntry) {
+            val homeVm = viewModel<HomeViewModel>(viewModelStoreOwner = backStackEntry) {
                 HomeViewModel(
                     userPreferences = container.userPreferences,
                     networkClient = container.networkClient,
@@ -119,6 +123,11 @@ fun SangitaNavGraph(
                 viewModel = homeVm,
                 onNavigateToLibrary = {
                     navController.navigate(Screen.Library.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToDiscover = {
+                    navController.navigate(Screen.Discover.route) {
                         launchSingleTop = true
                     }
                 },
@@ -140,8 +149,54 @@ fun SangitaNavGraph(
             )
         }
 
+        composable(Screen.Discover.route) { backStackEntry ->
+            val discoverVm = viewModel<DiscoverViewModel>(viewModelStoreOwner = backStackEntry) {
+                DiscoverViewModel(
+                    musicRepository = container.musicRepository,
+                    playbackController = container.playbackController,
+                    userPreferences = container.userPreferences,
+                    connectivityObserver = container.connectivityObserver
+                )
+            }
+            DiscoverScreen(
+                viewModel = discoverVm,
+                onArtistClick = { artistId ->
+                    val encoded = URLEncoder.encode(artistId, StandardCharsets.UTF_8.toString())
+                    navController.navigate(Screen.ArtistDetail.createRoute(encoded)) {
+                        launchSingleTop = true
+                    }
+                },
+                onPlaylistClick = { playlistId ->
+                    val encoded = URLEncoder.encode(playlistId, StandardCharsets.UTF_8.toString())
+                    navController.navigate(Screen.PlaylistDetail.createRoute(encoded)) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToHome = {
+                    navController.navigate(Screen.Home.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToLibrary = {
+                    navController.navigate(Screen.Library.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToDownloads = {
+                    navController.navigate(Screen.Downloads.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenFullPlayer = {
+                    navController.navigate(Screen.FullPlayer.route) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
         composable(Screen.Library.route) { backStackEntry ->
-            val libraryVm = remember(backStackEntry) {
+            val libraryVm = viewModel<LibraryViewModel>(viewModelStoreOwner = backStackEntry) {
                 LibraryViewModel(
                     musicRepository = container.musicRepository,
                     syncRepository = container.syncRepository,
@@ -150,7 +205,8 @@ fun SangitaNavGraph(
                     playbackController = container.playbackController,
                     downloadManager = container.downloadManager,
                     deviceSyncManager = container.deviceSyncManager,
-                    connectivityObserver = container.connectivityObserver
+                    connectivityObserver = container.connectivityObserver,
+                    playlistDao = container.database.playlistDao()
                 )
             }
             LibraryScreen(
@@ -158,6 +214,16 @@ fun SangitaNavGraph(
                 onPlaylistClick = { playlistName ->
                     val encoded = URLEncoder.encode(playlistName, StandardCharsets.UTF_8.toString())
                     navController.navigate(Screen.PlaylistDetail.createRoute(encoded)) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToHome = {
+                    navController.navigate(Screen.Home.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToDiscover = {
+                    navController.navigate(Screen.Discover.route) {
                         launchSingleTop = true
                     }
                 },
@@ -182,14 +248,14 @@ fun SangitaNavGraph(
 
         composable(
             route = Screen.PlaylistDetail.route,
-            arguments = listOf(navArgument("playlistName") { type = NavType.StringType })
+            arguments = listOf(navArgument("playlistKey") { type = NavType.StringType })
         ) { backStackEntry ->
-            val rawName = backStackEntry.arguments?.getString("playlistName") ?: "Library"
-            val decodedName = URLDecoder.decode(rawName, StandardCharsets.UTF_8.toString())
+            val rawKey = backStackEntry.arguments?.getString("playlistKey") ?: "Library"
+            val decodedKey = URLDecoder.decode(rawKey, StandardCharsets.UTF_8.toString())
 
-            val playlistVm = remember(backStackEntry, decodedName) {
+            val playlistVm = viewModel<PlaylistViewModel>(viewModelStoreOwner = backStackEntry) {
                 PlaylistViewModel(
-                    playlistName = decodedName,
+                    playlistKey = decodedKey,
                     musicRepository = container.musicRepository,
                     userPreferences = container.userPreferences,
                     playbackController = container.playbackController,
@@ -209,8 +275,36 @@ fun SangitaNavGraph(
             )
         }
 
+        composable(
+            route = Screen.ArtistDetail.route,
+            arguments = listOf(navArgument("artistId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val rawId = backStackEntry.arguments?.getString("artistId") ?: ""
+            val decodedId = URLDecoder.decode(rawId, StandardCharsets.UTF_8.toString())
+
+            val artistVm = viewModel<ArtistDetailViewModel>(viewModelStoreOwner = backStackEntry) {
+                ArtistDetailViewModel(
+                    artistId = decodedId,
+                    musicRepository = container.musicRepository,
+                    playbackController = container.playbackController,
+                    userPreferences = container.userPreferences,
+                    connectivityObserver = container.connectivityObserver
+                )
+            }
+            ArtistDetailScreen(
+                artistId = decodedId,
+                viewModel = artistVm,
+                onBackClick = { navController.popBackStack() },
+                onOpenFullPlayer = {
+                    navController.navigate(Screen.FullPlayer.route) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
         composable(Screen.Downloads.route) { backStackEntry ->
-            val downloadsVm = remember(backStackEntry) {
+            val downloadsVm = viewModel<DownloadsViewModel>(viewModelStoreOwner = backStackEntry) {
                 DownloadsViewModel(
                     trackDao = container.database.trackDao(),
                     localStorageManager = container.localStorageManager,
@@ -257,7 +351,7 @@ fun SangitaNavGraph(
                 )
             }
         ) { backStackEntry ->
-            val playerVm = remember(backStackEntry) {
+            val playerVm = viewModel<PlayerViewModel>(viewModelStoreOwner = backStackEntry) {
                 PlayerViewModel(
                     playbackController = container.playbackController,
                     musicRepository = container.musicRepository,
@@ -304,7 +398,7 @@ fun SangitaNavGraph(
                 )
             }
         ) { backStackEntry ->
-            val lyricsVm = remember(backStackEntry) {
+            val lyricsVm = viewModel<LyricsViewModel>(viewModelStoreOwner = backStackEntry) {
                 LyricsViewModel(
                     playbackController = container.playbackController,
                     lyricsRepository = container.lyricsRepository,

@@ -18,7 +18,8 @@ data class Track(
     val downloadProgress: Int = 0,
     val fileSizeBytes: Long = 0,
     val isFavorite: Boolean = false,
-    val album: String = ""
+    val album: String = "",
+    val isAvailable: Boolean = true
 )
 
 enum class DownloadStatus {

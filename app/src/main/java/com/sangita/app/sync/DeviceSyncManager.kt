@@ -49,6 +49,8 @@ class DeviceSyncManager(
     private val scope: CoroutineScope
 ) {
     private var socket: Socket? = null
+    private var socketServerUrl: String? = null
+    private var socketToken: String? = null
     private var heartbeatJob: Job? = null
 
     private val _devices = MutableStateFlow<List<SyncedDevice>>(emptyList())
@@ -90,6 +92,7 @@ class DeviceSyncManager(
         }
     }
 
+    @Synchronized
     fun connect() {
         var serverUrl = userPreferences.getServerUrl().trim()
         val token = userPreferences.getToken()
@@ -100,6 +103,13 @@ class DeviceSyncManager(
 
         if (serverUrl.endsWith("/")) {
             serverUrl = serverUrl.dropLast(1)
+        }
+
+        // Authentication and connectivity can change together. Reuse the one
+        // socket that is already connecting or reconnecting for this account.
+        if (socket != null && socketServerUrl == serverUrl && socketToken == token) {
+            socket?.connect()
+            return
         }
 
         try {
@@ -117,6 +127,8 @@ class DeviceSyncManager(
 
             val s = IO.socket(serverUrl, opts)
             socket = s
+            socketServerUrl = serverUrl
+            socketToken = token
 
             s.on(Socket.EVENT_CONNECT) {
                 Log.d(TAG, "Connected to sync server")
@@ -194,19 +206,6 @@ class DeviceSyncManager(
                         )
                     }
 
-                    // If active device is remote, make sure it is never dropped from the device list
-                    if (!currentActiveId.isNullOrBlank() && currentActiveId != myDeviceId && parsed.none { it.deviceId == currentActiveId }) {
-                        parsed.add(
-                            SyncedDevice(
-                                deviceId = currentActiveId,
-                                deviceName = "Web Browser",
-                                deviceType = "desktop",
-                                isActive = true,
-                                isMe = false
-                            )
-                        )
-                    }
-
                     val updatedList = parsed.map { d ->
                         d.copy(isActive = d.deviceId == _activeDeviceId.value)
                     }
@@ -220,12 +219,13 @@ class DeviceSyncManager(
             s.on("PLAYBACK_STATE_CHANGED") { args ->
                 try {
                     val data = args.firstOrNull() as? JSONObject ?: return@on
-                    val originId = data.optString("originDeviceId", "")
-                    if (originId.isNotEmpty() && originId == myDeviceId) {
+                    val stateObj = data.optJSONObject("state") ?: data
+                    val originId = stateObj.optString("originDeviceId", "")
+                    // A transfer acknowledgement also goes to its requester.
+                    // It carries the server's current track and must be applied.
+                    if (originId == myDeviceId && !stateObj.optBoolean("isTransferHandoff", false)) {
                         return@on
                     }
-
-                    val stateObj = data.optJSONObject("state") ?: data
 
                     val activeId = if (stateObj.has("activeDeviceId") && !stateObj.isNull("activeDeviceId")) {
                         stateObj.optString("activeDeviceId", "")
@@ -321,9 +321,25 @@ class DeviceSyncManager(
                     if (!_isActiveDevice.value) {
                         val current = _remotePlaybackState.value
                         if (current != null) {
-                            _remotePlaybackState.value = current.copy(
+                            _remotePlaybackState.value = current.withPositionReport(
                                 positionMs = posMs,
-                                durationMs = if (durMs > 0L) durMs else current.durationMs,
+                                durationMs = durMs,
+                                updatedAt = updatedAt,
+                                originDeviceId = originId.takeIf { it.isNotBlank() },
+                                trackId = data.optString("trackId", "").takeIf { it.isNotBlank() && it != "null" },
+                                activeDeviceId = data.optString("activeDeviceId", "").takeIf { it.isNotBlank() && it != "null" },
+                                reportedPlaying = if (data.has("isPlaying")) data.optBoolean("isPlaying") else null,
+                                reportedBuffering = if (data.has("isBuffering")) data.optBoolean("isBuffering") else null
+                            )
+                        } else {
+                            _remotePlaybackState.value = RemotePlaybackState(
+                                activeDeviceId = data.optString("activeDeviceId", "").takeIf { it.isNotBlank() && it != "null" },
+                                trackId = data.optString("trackId", "").takeIf { it.isNotBlank() && it != "null" },
+                                positionMs = posMs,
+                                durationMs = durMs,
+                                isPlaying = data.optBoolean("isPlaying", false),
+                                isBuffering = data.optBoolean("isBuffering", false),
+                                originDeviceId = originId.takeIf { it.isNotBlank() },
                                 updatedAt = updatedAt
                             )
                         }
@@ -444,12 +460,21 @@ class DeviceSyncManager(
         }
     }
 
-    fun reportPosition(positionMs: Long, durationMs: Long) {
+    fun reportPosition(
+        positionMs: Long,
+        durationMs: Long,
+        trackId: String? = null,
+        isPlaying: Boolean = false,
+        isBuffering: Boolean = false
+    ) {
         if (socket?.connected() != true || !_isActiveDevice.value) return
         try {
             val payload = JSONObject().apply {
                 put("positionMs", positionMs)
                 put("durationMs", durationMs)
+                if (!trackId.isNullOrBlank()) put("trackId", trackId)
+                put("isPlaying", isPlaying)
+                put("isBuffering", isBuffering)
                 put("originDeviceId", myDeviceId)
             }
             socket?.emit("POSITION_REPORT", payload)
@@ -497,6 +522,8 @@ class DeviceSyncManager(
                 positionMs = positionMs ?: current.positionMs,
                 durationMs = durationMs ?: current.durationMs,
                 isPlaying = true,
+                isTransferHandoff = false,
+                originDeviceId = myDeviceId,
                 updatedAt = System.currentTimeMillis()
             ) ?: RemotePlaybackState(
                 activeDeviceId = targetDeviceId,
@@ -504,6 +531,7 @@ class DeviceSyncManager(
                 positionMs = positionMs ?: 0L,
                 durationMs = durationMs ?: 0L,
                 isPlaying = true,
+                originDeviceId = myDeviceId,
                 updatedAt = System.currentTimeMillis()
             )
             _remotePlaybackState.value = newState
@@ -563,16 +591,28 @@ class DeviceSyncManager(
         }
     }
 
+    fun resetSyncState() {
+        _devices.value = emptyList()
+        _activeDeviceId.value = null
+        _isActiveDevice.value = false
+        _remotePlaybackState.value = null
+    }
+
+    @Synchronized
     fun disconnect() {
         stopHeartbeat()
         try {
+            socket?.off()
             socket?.disconnect()
             socket?.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error disconnecting socket", e)
         }
         socket = null
+        socketServerUrl = null
+        socketToken = null
         _isConnected.value = false
+        resetSyncState()
     }
 
     companion object {

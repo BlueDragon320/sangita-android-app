@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
@@ -85,6 +86,18 @@ class PlaybackController(
                     if (activeDev != null) {
                         _playbackState.update { it.copy(activeDeviceName = activeDev.deviceName) }
                     }
+                }
+            }
+        }
+
+        scope.launch {
+            var previousAccountKey = userPreferences.getAccountKey()
+            userPreferences.observeAccountKey().collect { currentAccountKey ->
+                if (currentAccountKey != previousAccountKey) {
+                    withContext(Dispatchers.Main) {
+                        resetPlayback()
+                    }
+                    previousAccountKey = currentAccountKey
                 }
             }
         }
@@ -787,6 +800,18 @@ class PlaybackController(
     fun setPlaybackSpeed(speed: Float) {
         mediaController?.setPlaybackSpeed(speed)
         _playbackState.update { it.copy(playbackSpeed = speed) }
+    }
+
+    fun resetPlayback() {
+        stopProgressPolling()
+        mediaController?.stop()
+        mediaController?.clearMediaItems()
+        _playbackState.value = PlaybackState()
+        _currentQueue.value = emptyList()
+    }
+
+    fun stop() {
+        resetPlayback()
     }
 
     private fun startProgressPolling() {

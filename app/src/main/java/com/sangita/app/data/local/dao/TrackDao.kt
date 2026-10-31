@@ -32,6 +32,43 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%' ORDER BY title ASC")
     fun searchTracks(query: String): Flow<List<TrackEntity>>
 
+    @Query("""
+        SELECT DISTINCT t.* FROM tracks t
+        INNER JOIN playlist_track_cross_ref xref ON t.id = xref.track_id
+        INNER JOIN playlists p ON xref.playlist_local_key = p.local_key
+        WHERE p.account_key = :accountKey
+        ORDER BY t.title ASC
+    """)
+    fun observeTracksForAccount(accountKey: String): Flow<List<TrackEntity>>
+
+    @Query("""
+        SELECT DISTINCT t.* FROM tracks t
+        INNER JOIN playlist_track_cross_ref xref ON t.id = xref.track_id
+        INNER JOIN playlists p ON xref.playlist_local_key = p.local_key
+        WHERE p.account_key = :accountKey AND t.is_downloaded = 1
+        ORDER BY t.downloaded_at DESC, t.title ASC
+    """)
+    fun observeDownloadedTracksForAccount(accountKey: String): Flow<List<TrackEntity>>
+
+    @Query("""
+        SELECT DISTINCT t.* FROM tracks t
+        INNER JOIN playlist_track_cross_ref xref ON t.id = xref.track_id
+        INNER JOIN playlists p ON xref.playlist_local_key = p.local_key
+        WHERE p.account_key = :accountKey
+          AND (t.title LIKE '%' || :query || '%' OR t.artist LIKE '%' || :query || '%' OR t.album LIKE '%' || :query || '%')
+        ORDER BY t.title ASC
+    """)
+    fun searchTracksForAccount(accountKey: String, query: String): Flow<List<TrackEntity>>
+
+    @Query("""
+        SELECT DISTINCT t.* FROM tracks t
+        INNER JOIN playlist_track_cross_ref xref ON t.id = xref.track_id
+        INNER JOIN playlists p ON xref.playlist_local_key = p.local_key
+        WHERE p.account_key = :accountKey AND (t.is_favorite = 1 OR p.kind = 'FAVORITES')
+        ORDER BY t.title ASC
+    """)
+    fun observeFavoriteTracksForAccount(accountKey: String): Flow<List<TrackEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrReplace(track: TrackEntity)
 

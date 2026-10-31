@@ -25,17 +25,37 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -46,6 +66,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,32 +79,27 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sangita.app.data.local.storage.LocalStorageManager
-import com.sangita.app.ui.components.rememberCoverModel
 import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.DeviceSyncBottomSheet
 import com.sangita.app.ui.components.MiniPlayer
 import com.sangita.app.ui.components.TrackItemRow
+import com.sangita.app.ui.components.rememberCoverModel
+import com.sangita.app.ui.dialogs.AddToPlaylistSheet
+import com.sangita.app.ui.dialogs.CreatePlaylistDialog
+import com.sangita.app.ui.dialogs.EditPlaylistDialog
+import com.sangita.app.ui.theme.SangitaEmerald
+import com.sangita.app.ui.theme.SangitaThemeColors
 import kotlin.math.absoluteValue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.sangita.app.ui.theme.DarkBorder
-import com.sangita.app.ui.theme.Emerald500
-import com.sangita.app.ui.theme.SangitaBlack
-import com.sangita.app.ui.theme.SangitaCard
-import com.sangita.app.ui.theme.SangitaEmerald
-import com.sangita.app.ui.theme.SangitaText
-import com.sangita.app.ui.theme.SangitaTextDim
-import com.sangita.app.ui.theme.SangitaTextSub
-import com.sangita.app.ui.theme.SangitaThemeColors
-import com.sangita.app.ui.theme.TextMuted
-import com.sangita.app.ui.theme.TextPrimary
-import com.sangita.app.ui.theme.TextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,11 +108,35 @@ fun PlaylistDetailScreen(
     onBackClick: () -> Unit,
     onOpenFullPlayer: () -> Unit
 ) {
-    val tracks by viewModel.tracks.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val playlist = uiState.playlist
+    val tracks = uiState.tracks
+    val isOwner = uiState.isOwner
+    val unavailableCount = uiState.unavailableCount
+    val userMessage = uiState.userMessage
+
     val playbackState = viewModel.playbackState.collectAsState()
     val devices by viewModel.devices.collectAsState()
     var showDevicesSheet by remember { mutableStateOf(false) }
+
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showCloneConfirm by remember { mutableStateOf(false) }
+    var isReorderMode by remember { mutableStateOf(false) }
+    var selectedTrackForMenu by remember { mutableStateOf<Track?>(null) }
+    var showAddToPlaylistSheet by remember { mutableStateOf(false) }
+    var showCreateDialogFromSheet by remember { mutableStateOf(false) }
+
     val username = viewModel.userPreferences.getUsername() ?: "User"
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(userMessage) {
+        if (userMessage != null) {
+            snackbarHostState.showSnackbar(userMessage)
+            viewModel.clearUserMessage()
+        }
+    }
 
     val currentPlayingTrackId by remember(playbackState) {
         derivedStateOf { playbackState.value.currentTrack?.id }
@@ -112,7 +152,6 @@ fun PlaylistDetailScreen(
     }
 
     var dominantColor by remember(viewModel.playlistName) {
-        // Deterministic seed based on playlist name as zero-latency default
         val hue = (viewModel.playlistName.hashCode().absoluteValue % 360).toFloat()
         mutableStateOf(Color.hsl(hue, 0.45f, 0.20f))
     }
@@ -158,7 +197,6 @@ fun PlaylistDetailScreen(
         label = "PlaylistDominantColor"
     )
 
-    // Dynamic background gradient based on album art / palette
     val gradientColors = if (isLight) {
         listOf(
             animatedDominantColor.copy(alpha = 0.25f),
@@ -177,8 +215,13 @@ fun PlaylistDetailScreen(
         )
     }
 
+    val displayTitle = playlist?.title ?: viewModel.playlistName
+    val displayOwner = playlist?.owner ?: username
+    val hasUnavailableTracks = unavailableCount > 0 || tracks.any { !it.isAvailable }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 modifier = Modifier
@@ -194,6 +237,49 @@ fun PlaylistDetailScreen(
                         )
                     }
                 },
+                actions = {
+                    if (isOwner) {
+                        IconButton(onClick = { isReorderMode = !isReorderMode }) {
+                            Icon(
+                                imageVector = if (isReorderMode) Icons.Default.Check else Icons.Default.SwapVert,
+                                contentDescription = if (isReorderMode) "Done Reordering" else "Edit Order",
+                                tint = if (isReorderMode) themeColors.accent else themeColors.textPrimary
+                            )
+                        }
+                        IconButton(onClick = { showEditDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Playlist",
+                                tint = themeColors.textPrimary
+                            )
+                        }
+                        IconButton(onClick = { showDeleteConfirm = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Playlist",
+                                tint = themeColors.textPrimary
+                            )
+                        }
+                    } else {
+                        val isSaved = uiState.isSaved
+                        IconButton(onClick = {
+                            if (isSaved) viewModel.removeFromLibrary() else viewModel.saveToLibrary()
+                        }) {
+                            Icon(
+                                imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                contentDescription = if (isSaved) "Remove from Library" else "Save to Library",
+                                tint = if (isSaved) themeColors.accent else themeColors.textPrimary
+                            )
+                        }
+                        IconButton(onClick = { showCloneConfirm = true }) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Save to My Playlists",
+                                tint = themeColors.textPrimary
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
                 )
@@ -206,9 +292,9 @@ fun PlaylistDetailScreen(
                     playbackState = miniPlaybackState,
                     serverUrl = viewModel.serverUrl,
                     token = viewModel.token,
-                    onTogglePlayPause = viewModel.playbackController::togglePlayPause,
-                    onSkipPrevious = viewModel.playbackController::skipPrevious,
-                    onSkipNext = viewModel.playbackController::skipNext,
+                    onTogglePlayPause = viewModel::togglePlayPause,
+                    onSkipPrevious = viewModel::skipPrevious,
+                    onSkipNext = viewModel::skipNext,
                     onOpenDevices = { showDevicesSheet = true },
                     onClick = onOpenFullPlayer
                 )
@@ -226,7 +312,7 @@ fun PlaylistDetailScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 36.dp)
             ) {
-                // HERO SECTION (Cover Collage, Meta, Controls)
+                // HEADER SECTION
                 item {
                     Column(
                         modifier = Modifier
@@ -236,7 +322,7 @@ fun PlaylistDetailScreen(
                     ) {
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // 1. 2x2 Artwork Collage or Single Cover
+                        // Cover Collage or AsyncImage
                         PlaylistCollageCover(
                             tracks = tracks,
                             serverUrl = viewModel.serverUrl,
@@ -244,21 +330,33 @@ fun PlaylistDetailScreen(
                             modifier = Modifier.size(200.dp)
                         )
 
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
-                        // 2. Metadata (PUBLIC PLAYLIST, Title, username, songs & duration)
+                        // Unobtrusive metadata text for Public Playlist
+                        if (playlist?.isPublic == true) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Public,
+                                    contentDescription = null,
+                                    tint = themeColors.textMuted,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = "Public Playlist",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = themeColors.textMuted,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+
+                        // Title
                         Text(
-                            text = "PUBLIC PLAYLIST",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = themeColors.textSecondary,
-                            letterSpacing = 2.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = viewModel.playlistName,
+                            text = displayTitle,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = themeColors.textPrimary,
@@ -267,7 +365,7 @@ fun PlaylistDetailScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // User badge: (Initial) username •
+                        // Owner name: "Created by ..."
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -279,7 +377,7 @@ fun PlaylistDetailScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "${username.firstOrNull()?.uppercaseChar() ?: 'V'}",
+                                    text = "${displayOwner.firstOrNull()?.uppercaseChar() ?: 'U'}",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.Black
@@ -287,47 +385,272 @@ fun PlaylistDetailScreen(
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "$username •",
+                                text = "Created by $displayOwner",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = themeColors.textPrimary
                             )
                         }
 
+                        // Description if present (filter out generated folder text)
+                        val cleanDescription = playlist?.description?.takeIf {
+                            !it.trim().startsWith("Folder playlist for", ignoreCase = true)
+                        }
+                        if (!cleanDescription.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = cleanDescription,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = themeColors.textSecondary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                maxLines = 4,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // "30 songs, about 2 hr 13 min"
+                        // Total track count & duration
                         Text(
-                            text = "${tracks.size} songs, ${formatDurationNatural(totalDurationSeconds)}",
+                            text = "${tracks.size} tracks • ${formatDurationNatural(totalDurationSeconds)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = themeColors.textMuted
                         )
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // Single Centered [🔀 Mix] Pill
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(themeColors.card)
-                                .border(1.dp, themeColors.border, RoundedCornerShape(20.dp))
-                                .clickable { viewModel.playAll(shuffle = true) }
-                                .padding(horizontal = 24.dp, vertical = 8.dp),
-                            contentAlignment = Alignment.Center
+                        // UNAVAILABLE WARNING BANNER
+                        if (hasUnavailableTracks) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFFEF3C7).copy(alpha = if (isLight) 0.90f else 0.16f))
+                                    .border(1.dp, Color(0xFFF59E0B).copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = "Warning",
+                                        tint = Color(0xFFF59E0B),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "⚠️ Some tracks are unavailable or restricted.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (isLight) Color(0xFF92400E) else Color(0xFFFDE68A)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
+                        // ACTION BUTTONS ROW
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Shuffle,
-                                    contentDescription = "Mix",
-                                    tint = themeColors.textPrimary,
-                                    modifier = Modifier.size(15.dp)
-                                )
+                            // Play Button (plays available tracks)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(22.dp))
+                                    .background(themeColors.accent)
+                                    .clickable { viewModel.playAll() }
+                                    .padding(horizontal = 22.dp, vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = "Play",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Play",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            // Shuffle Button (shuffles available tracks)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(22.dp))
+                                    .background(themeColors.card)
+                                    .border(1.dp, themeColors.border, RoundedCornerShape(22.dp))
+                                    .clickable { viewModel.shufflePlay() }
+                                    .padding(horizontal = 18.dp, vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Shuffle,
+                                        contentDescription = "Shuffle",
+                                        tint = themeColors.textPrimary,
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Shuffle",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = themeColors.textPrimary
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            // If Owner or Admin: Edit Order, Edit & Delete buttons
+                            if (isOwner) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(22.dp))
+                                        .background(if (isReorderMode) themeColors.accent.copy(alpha = 0.2f) else themeColors.card)
+                                        .border(1.dp, if (isReorderMode) themeColors.accent else themeColors.border, RoundedCornerShape(22.dp))
+                                        .clickable { isReorderMode = !isReorderMode }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = if (isReorderMode) Icons.Default.Check else Icons.Default.SwapVert,
+                                            contentDescription = if (isReorderMode) "Done Reordering" else "Edit Order",
+                                            tint = if (isReorderMode) themeColors.accent else themeColors.textPrimary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (isReorderMode) "Done" else "Edit Order",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isReorderMode) themeColors.accent else themeColors.textPrimary
+                                        )
+                                    }
+                                }
+
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Mix",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = themeColors.textPrimary
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(themeColors.card)
+                                        .border(1.dp, themeColors.border, CircleShape)
+                                        .clickable { showEditDialog = true }
+                                        .padding(10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit",
+                                        tint = themeColors.textPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(themeColors.card)
+                                        .border(1.dp, themeColors.border, CircleShape)
+                                        .clickable { showDeleteConfirm = true }
+                                        .padding(10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = themeColors.textPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            } else {
+                                // If Not Owner: Save to Library / Remove from Library button
+                                val isSaved = uiState.isSaved
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(22.dp))
+                                        .background(if (isSaved) themeColors.accent.copy(alpha = 0.15f) else themeColors.card)
+                                        .border(1.dp, if (isSaved) themeColors.accent else themeColors.border, RoundedCornerShape(22.dp))
+                                        .clickable {
+                                            if (isSaved) {
+                                                viewModel.removeFromLibrary()
+                                            } else {
+                                                viewModel.saveToLibrary()
+                                            }
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                            contentDescription = if (isSaved) "Remove from Library" else "Save to Library",
+                                            tint = if (isSaved) themeColors.accent else themeColors.textPrimary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (isSaved) "Remove from Library" else "Save to Library",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isSaved) themeColors.accent else themeColors.textPrimary
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(themeColors.card)
+                                        .border(1.dp, themeColors.border, CircleShape)
+                                        .clickable { showCloneConfirm = true }
+                                        .padding(10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Clone",
+                                        tint = themeColors.textPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // Download Playlist Button
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(themeColors.card)
+                                    .border(1.dp, themeColors.border, CircleShape)
+                                    .clickable { viewModel.downloadAll() }
+                                    .padding(10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Download Playlist",
+                                    tint = themeColors.textPrimary,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
@@ -342,22 +665,386 @@ fun PlaylistDetailScreen(
                     key = { _, track -> track.id },
                     contentType = { _, _ -> "track" }
                 ) { index, track ->
-                    TrackItemRow(
-                        track = track,
-                        serverUrl = viewModel.serverUrl,
-                        token = viewModel.token,
-                        index = index + 1,
-                        isPlayingThisTrack = currentPlayingTrackId == track.id,
-                        onClick = { viewModel.playTrack(track) },
-                        onToggleFavorite = { viewModel.toggleFavorite(track) },
-                        onDownloadClick = { viewModel.downloadTrack(track) },
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
+                    var trackMenuExpanded by remember { mutableStateOf(false) }
+
+                    if (isReorderMode && isOwner) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Move Up / Move Down controls
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        if (index > 0) {
+                                            val mutable = tracks.toMutableList()
+                                            java.util.Collections.swap(mutable, index, index - 1)
+                                            viewModel.reorderTracks(mutable)
+                                        }
+                                    },
+                                    enabled = index > 0,
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowUp,
+                                        contentDescription = "Move up",
+                                        tint = if (index > 0) themeColors.accent else themeColors.textMuted.copy(alpha = 0.3f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        if (index < tracks.size - 1) {
+                                            val mutable = tracks.toMutableList()
+                                            java.util.Collections.swap(mutable, index, index + 1)
+                                            viewModel.reorderTracks(mutable)
+                                        }
+                                    },
+                                    enabled = index < tracks.size - 1,
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Move down",
+                                        tint = if (index < tracks.size - 1) themeColors.accent else themeColors.textMuted.copy(alpha = 0.3f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            Box(modifier = Modifier.weight(1f)) {
+                                TrackItemRow(
+                                    track = track,
+                                    serverUrl = viewModel.serverUrl,
+                                    token = viewModel.token,
+                                    index = index + 1,
+                                    isPlayingThisTrack = currentPlayingTrackId == track.id,
+                                    onClick = { viewModel.playTrack(track) },
+                                    onToggleFavorite = { viewModel.toggleFavorite(track) },
+                                    onDownloadClick = { viewModel.downloadTrack(track) },
+                                    onMenuClick = { trackMenuExpanded = true }
+                                )
+
+                                DropdownMenu(
+                                    expanded = trackMenuExpanded,
+                                    onDismissRequest = { trackMenuExpanded = false },
+                                    modifier = Modifier.background(themeColors.card)
+                                ) {
+                                    if (index > 0) {
+                                        DropdownMenuItem(
+                                            text = { Text("Move up", color = themeColors.textPrimary) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.KeyboardArrowUp,
+                                                    contentDescription = null,
+                                                    tint = themeColors.accent
+                                                )
+                                            },
+                                            onClick = {
+                                                trackMenuExpanded = false
+                                                val mutable = tracks.toMutableList()
+                                                java.util.Collections.swap(mutable, index, index - 1)
+                                                viewModel.reorderTracks(mutable)
+                                            }
+                                        )
+                                    }
+                                    if (index < tracks.size - 1) {
+                                        DropdownMenuItem(
+                                            text = { Text("Move down", color = themeColors.textPrimary) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                                    contentDescription = null,
+                                                    tint = themeColors.accent
+                                                )
+                                            },
+                                            onClick = {
+                                                trackMenuExpanded = false
+                                                val mutable = tracks.toMutableList()
+                                                java.util.Collections.swap(mutable, index, index + 1)
+                                                viewModel.reorderTracks(mutable)
+                                            }
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text("Add to playlist", color = themeColors.textPrimary) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.MusicNote,
+                                                contentDescription = null,
+                                                tint = themeColors.textPrimary
+                                            )
+                                        },
+                                        onClick = {
+                                            trackMenuExpanded = false
+                                            selectedTrackForMenu = track
+                                            showAddToPlaylistSheet = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Remove from playlist", color = MaterialTheme.colorScheme.error) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        },
+                                        onClick = {
+                                            trackMenuExpanded = false
+                                            viewModel.removeTrack(track)
+                                        }
+                                    )
+                                }
+                            }
+
+                            Icon(
+                                imageVector = Icons.Default.DragHandle,
+                                contentDescription = "Drag to reorder",
+                                tint = themeColors.textMuted,
+                                modifier = Modifier
+                                    .padding(end = 4.dp)
+                                    .size(20.dp)
+                            )
+                        }
+                    } else {
+                        Box {
+                            TrackItemRow(
+                                track = track,
+                                serverUrl = viewModel.serverUrl,
+                                token = viewModel.token,
+                                index = index + 1,
+                                isPlayingThisTrack = currentPlayingTrackId == track.id,
+                                onClick = { viewModel.playTrack(track) },
+                                onToggleFavorite = { viewModel.toggleFavorite(track) },
+                                onDownloadClick = { viewModel.downloadTrack(track) },
+                                onMenuClick = { trackMenuExpanded = true },
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            )
+
+                            // Track Context Dropdown Menu
+                            DropdownMenu(
+                                expanded = trackMenuExpanded,
+                                onDismissRequest = { trackMenuExpanded = false },
+                                modifier = Modifier.background(themeColors.card)
+                            ) {
+                                if (isOwner && index > 0) {
+                                    DropdownMenuItem(
+                                        text = { Text("Move up", color = themeColors.textPrimary) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowUp,
+                                                contentDescription = null,
+                                                tint = themeColors.accent
+                                            )
+                                        },
+                                        onClick = {
+                                            trackMenuExpanded = false
+                                            val mutable = tracks.toMutableList()
+                                            java.util.Collections.swap(mutable, index, index - 1)
+                                            viewModel.reorderTracks(mutable)
+                                        }
+                                    )
+                                }
+                                if (isOwner && index < tracks.size - 1) {
+                                    DropdownMenuItem(
+                                        text = { Text("Move down", color = themeColors.textPrimary) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowDown,
+                                                contentDescription = null,
+                                                tint = themeColors.accent
+                                            )
+                                        },
+                                        onClick = {
+                                            trackMenuExpanded = false
+                                            val mutable = tracks.toMutableList()
+                                            java.util.Collections.swap(mutable, index, index + 1)
+                                            viewModel.reorderTracks(mutable)
+                                        }
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text("Add to playlist", color = themeColors.textPrimary) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.MusicNote,
+                                            contentDescription = null,
+                                            tint = themeColors.textPrimary
+                                        )
+                                    },
+                                    onClick = {
+                                        trackMenuExpanded = false
+                                        selectedTrackForMenu = track
+                                        showAddToPlaylistSheet = true
+                                    }
+                                )
+
+                                if (isOwner) {
+                                    DropdownMenuItem(
+                                        text = { Text("Remove from playlist", color = MaterialTheme.colorScheme.error) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        },
+                                        onClick = {
+                                            trackMenuExpanded = false
+                                            viewModel.removeTrack(track)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
+    // Edit Playlist Dialog
+    if (showEditDialog && playlist != null) {
+        EditPlaylistDialog(
+            initialTitle = playlist.title,
+            initialDescription = playlist.description,
+            initialVisibility = playlist.visibility,
+            onDismiss = { showEditDialog = false },
+            onSave = { title, description, visibility ->
+                showEditDialog = false
+                viewModel.updatePlaylist(title, description, visibility)
+            }
+        )
+    }
+
+    // Delete Confirmation Dialog
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = {
+                Text(
+                    text = "Delete playlist?",
+                    fontWeight = FontWeight.Bold,
+                    color = themeColors.textPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete \"$displayTitle\"? This cannot be undone.",
+                    color = themeColors.textSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        viewModel.deletePlaylist { success ->
+                            if (success) onBackClick()
+                        }
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel", color = themeColors.textMuted)
+                }
+            },
+            containerColor = themeColors.card,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // Clone Confirmation Dialog
+    if (showCloneConfirm) {
+        AlertDialog(
+            onDismissRequest = { showCloneConfirm = false },
+            title = {
+                Text(
+                    text = "Save to My Playlists?",
+                    fontWeight = FontWeight.Bold,
+                    color = themeColors.textPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "A personal copy of \"$displayTitle\" will be saved to your library.",
+                    color = themeColors.textSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCloneConfirm = false
+                        viewModel.clonePlaylist { cloned ->
+                            if (cloned != null) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Saved \"${cloned.title}\" to your library")
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text("Save", color = themeColors.accent, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCloneConfirm = false }) {
+                    Text("Cancel", color = themeColors.textMuted)
+                }
+            },
+            containerColor = themeColors.card,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // Add To Playlist Sheet
+    if (showAddToPlaylistSheet) {
+        val allPlaylists by viewModel.allPlaylists.collectAsState()
+        AddToPlaylistSheet(
+            track = selectedTrackForMenu,
+            playlists = allPlaylists,
+            onSelectPlaylist = { targetPlaylist ->
+                selectedTrackForMenu?.let { tr ->
+                    scope.launch {
+                        viewModel.musicRepository.addTrackToPlaylist(targetPlaylist.id, tr)
+                        snackbarHostState.showSnackbar("Added to ${targetPlaylist.title}")
+                    }
+                }
+            },
+            onCreateNewPlaylist = {
+                showCreateDialogFromSheet = true
+            },
+            onDismiss = { showAddToPlaylistSheet = false }
+        )
+    }
+
+    // Create New Playlist Dialog from AddToPlaylistSheet
+    if (showCreateDialogFromSheet) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreateDialogFromSheet = false },
+            onCreate = { title, description, isPublic ->
+                showCreateDialogFromSheet = false
+                viewModel.createNewPlaylist(title, description, isPublic) { newPlaylist ->
+                    selectedTrackForMenu?.let { tr ->
+                        scope.launch {
+                            viewModel.musicRepository.addTrackToPlaylist(newPlaylist.id, tr)
+                            snackbarHostState.showSnackbar("Added to ${newPlaylist.title}")
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    // Device Sync Bottom Sheet
     if (showDevicesSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         DeviceSyncBottomSheet(
@@ -372,6 +1059,7 @@ fun PlaylistDetailScreen(
         )
     }
 }
+
 
 @Composable
 fun PlaylistCollageCover(
@@ -390,7 +1078,6 @@ fun PlaylistCollageCover(
             .background(SangitaThemeColors.current.card)
     ) {
         if (firstFour.size >= 4) {
-            // 2x2 Collage Quadrants
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(modifier = Modifier.weight(1f)) {
                     CollageCell(
