@@ -6,6 +6,7 @@ import com.sangita.app.data.local.preferences.UserPreferences
 import com.sangita.app.data.remote.dto.ArtistDto
 import com.sangita.app.domain.model.Playlist
 import com.sangita.app.domain.model.Track
+import com.sangita.app.domain.model.path
 import com.sangita.app.domain.repository.MusicRepository
 import com.sangita.app.player.PlaybackController
 import com.sangita.app.sync.NetworkConnectivityObserver
@@ -26,6 +27,7 @@ data class DiscoverUiState(
     val artists: List<ArtistDto> = emptyList(),
     val folderPlaylists: List<Playlist> = emptyList(),
     val communityPlaylists: List<Playlist> = emptyList(),
+    val tracks: List<Track> = emptyList(),
     val errorMessage: String? = null,
     val isOffline: Boolean = false
 )
@@ -50,9 +52,29 @@ class DiscoverViewModel(
     private var rawArtists: List<ArtistDto> = emptyList()
     private var rawFolderPlaylists: List<Playlist> = emptyList()
     private var rawCommunityPlaylists: List<Playlist> = emptyList()
+    private var rawTracks: List<Track> = emptyList()
 
     init {
+        observeTracks()
         refresh()
+    }
+
+    private fun observeTracks() {
+        viewModelScope.launch {
+            try {
+                musicRepository.observeAllTracks().collect { allTracks ->
+                    rawTracks = allTracks
+                    if (_uiState.value.searchQuery.isNotBlank()) {
+                        _uiState.update { current ->
+                            current.copy(tracks = filterTracks(rawTracks, current.searchQuery))
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
     }
 
     fun toggleSavePlaylist(playlist: Playlist) {
@@ -73,7 +95,8 @@ class DiscoverViewModel(
                 searchQuery = query,
                 artists = filterArtists(rawArtists, query),
                 folderPlaylists = filterPlaylists(rawFolderPlaylists, query),
-                communityPlaylists = filterCommunityPlaylists(rawCommunityPlaylists, query)
+                communityPlaylists = filterCommunityPlaylists(rawCommunityPlaylists, query),
+                tracks = if (query.isNotBlank()) filterTracks(rawTracks, query) else emptyList()
             )
         }
     }
@@ -157,6 +180,7 @@ class DiscoverViewModel(
                         artists = filterArtists(rawArtists, currentQuery),
                         folderPlaylists = filterPlaylists(rawFolderPlaylists, currentQuery),
                         communityPlaylists = filterCommunityPlaylists(rawCommunityPlaylists, currentQuery),
+                        tracks = if (currentQuery.isNotBlank()) filterTracks(rawTracks, currentQuery) else emptyList(),
                         errorMessage = errorMsg,
                         isOffline = isNetworkIssue && isEmptyResult
                     )
@@ -174,6 +198,16 @@ class DiscoverViewModel(
                 }
             }
         }
+    }
+
+    fun playTrack(track: Track) {
+        val currentTracks = _uiState.value.tracks
+        val queue = if (currentTracks.isNotEmpty() && currentTracks.contains(track)) {
+            currentTracks
+        } else {
+            listOf(track)
+        }
+        playbackController.playTrack(track, queue)
     }
 
     fun playPlaylist(playlist: Playlist) {
@@ -217,24 +251,105 @@ class DiscoverViewModel(
     }
 
     private fun filterArtists(list: List<ArtistDto>, query: String): List<ArtistDto> {
-        val q = query.trim()
-        if (q.isEmpty()) return list
-        return list.filter { it.name.contains(q, ignoreCase = true) }
+        if (query.isBlank()) return list
+        return list.filter { artist ->
+            matchIndividualLetters(query, artist.name)
+        }
     }
 
     private fun filterPlaylists(list: List<Playlist>, query: String): List<Playlist> {
-        val q = query.trim()
-        if (q.isEmpty()) return list
-        return list.filter { it.title.contains(q, ignoreCase = true) }
+        if (query.isBlank()) return list
+        return list.filter { playlist ->
+            matchIndividualLetters(query, playlist.title, playlist.description)
+        }
     }
 
     private fun filterCommunityPlaylists(list: List<Playlist>, query: String): List<Playlist> {
-        val q = query.trim()
-        if (q.isEmpty()) return list
-        return list.filter {
-            it.title.contains(q, ignoreCase = true) ||
-                it.owner?.contains(q, ignoreCase = true) == true ||
-                it.description?.contains(q, ignoreCase = true) == true
+        if (query.isBlank()) return list
+        return list.filter { playlist ->
+            matchIndividualLetters(query, playlist.title, playlist.owner, playlist.description)
         }
     }
+
+    private fun filterTracks(list: List<Track>, query: String): List<Track> {
+        if (query.isBlank()) return emptyList()
+        return list.filter { track ->
+            matchIndividualLetters(query, track.title, track.artist, track.album, track.path)
+        }
+    }
+}
+
+fun matchIndividualLetters(query: String, vararg fields: String?): Boolean {
+    if (query.isBlank()) return true
+    val validFields = fields.filterNotNull()
+    if (validFields.isEmpty()) return false
+
+    val q = query.trim().lowercase()
+    if (q.isEmpty()) return true
+
+    val targets = validFields.map { it.lowercase() }
+
+    // a) Exact substring match: any field contains query
+    if (targets.any { it.contains(q) }) {
+        return true
+    }
+
+    // b) Sequential subsequence match: characters in query appear in field in sequential order
+    if (targets.any { isSubsequence(q, it) }) {
+        return true
+    }
+
+    // c) Individual letter multiset match: every non-whitespace character in the query exists in the target string(s)
+    if (targets.any { isMultisetMatch(q, it) }) {
+        return true
+    }
+
+    // d) Token matching: if query has multiple words, all words match
+    val tokens = q.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+    if (tokens.size > 1) {
+        return tokens.all { token ->
+            targets.any { field ->
+                field.contains(token) || isSubsequence(token, field) || isMultisetMatch(token, field)
+            }
+        }
+    }
+
+    return false
+}
+
+private fun isSubsequence(pattern: String, text: String): Boolean {
+    val cleanPattern = pattern.filter { !it.isWhitespace() }
+    if (cleanPattern.isEmpty()) return true
+    var patternIdx = 0
+    for (ch in text) {
+        if (ch == cleanPattern[patternIdx]) {
+            patternIdx++
+            if (patternIdx == cleanPattern.length) return true
+        }
+    }
+    return false
+}
+
+private fun isMultisetMatch(pattern: String, target: String): Boolean {
+    val patternChars = pattern.filter { !it.isWhitespace() }
+    if (patternChars.isEmpty()) return true
+
+    val patternCounts = HashMap<Char, Int>()
+    for (ch in patternChars) {
+        patternCounts[ch] = (patternCounts[ch] ?: 0) + 1
+    }
+
+    val targetCounts = HashMap<Char, Int>()
+    for (ch in target) {
+        if (!ch.isWhitespace()) {
+            targetCounts[ch] = (targetCounts[ch] ?: 0) + 1
+        }
+    }
+
+    for ((ch, count) in patternCounts) {
+        if ((targetCounts[ch] ?: 0) < count) {
+            return false
+        }
+    }
+    return true
 }

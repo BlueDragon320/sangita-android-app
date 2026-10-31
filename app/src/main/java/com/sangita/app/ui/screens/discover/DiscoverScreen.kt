@@ -80,7 +80,9 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.sangita.app.data.remote.dto.ArtistDto
 import com.sangita.app.domain.model.Playlist
+import com.sangita.app.domain.model.Track
 import com.sangita.app.ui.components.MiniPlayer
+import com.sangita.app.ui.components.TrackItemRow
 import com.sangita.app.ui.screens.library.PlaylistThumbnail
 import com.sangita.app.ui.theme.SangitaColors
 import com.sangita.app.ui.theme.SangitaThemeColors
@@ -239,12 +241,12 @@ fun DiscoverScreen(
         ) {
             when {
                 // Shimmer / Loading State when initially empty
-                uiState.isLoading && uiState.artists.isEmpty() && uiState.folderPlaylists.isEmpty() && uiState.communityPlaylists.isEmpty() -> {
+                uiState.isLoading && uiState.artists.isEmpty() && uiState.folderPlaylists.isEmpty() && uiState.communityPlaylists.isEmpty() && uiState.tracks.isEmpty() -> {
                     DiscoverLoadingState(colors = colors)
                 }
 
                 // Error State with Retry Button
-                uiState.errorMessage != null && uiState.artists.isEmpty() && uiState.folderPlaylists.isEmpty() && uiState.communityPlaylists.isEmpty() -> {
+                uiState.errorMessage != null && uiState.artists.isEmpty() && uiState.folderPlaylists.isEmpty() && uiState.communityPlaylists.isEmpty() && uiState.tracks.isEmpty() -> {
                     DiscoverErrorState(
                         errorMessage = uiState.errorMessage ?: "Failed to load discovery content",
                         onRetry = viewModel::refresh,
@@ -253,7 +255,7 @@ fun DiscoverScreen(
                 }
 
                 // Empty State when Search yields no results
-                uiState.searchQuery.isNotBlank() && uiState.artists.isEmpty() && uiState.folderPlaylists.isEmpty() && uiState.communityPlaylists.isEmpty() -> {
+                uiState.searchQuery.isNotBlank() && uiState.artists.isEmpty() && uiState.folderPlaylists.isEmpty() && uiState.communityPlaylists.isEmpty() && uiState.tracks.isEmpty() -> {
                     DiscoverEmptySearchState(
                         query = uiState.searchQuery,
                         colors = colors
@@ -262,7 +264,7 @@ fun DiscoverScreen(
 
                 // Empty State when catalog is completely empty
                 !uiState.isLoading && uiState.errorMessage == null && uiState.searchQuery.isBlank() &&
-                    uiState.artists.isEmpty() && uiState.folderPlaylists.isEmpty() && uiState.communityPlaylists.isEmpty() -> {
+                    uiState.artists.isEmpty() && uiState.folderPlaylists.isEmpty() && uiState.communityPlaylists.isEmpty() && uiState.tracks.isEmpty() -> {
                     DiscoverEmptyCatalogState(
                         onRefresh = viewModel::refresh,
                         colors = colors
@@ -275,6 +277,33 @@ fun DiscoverScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
                     ) {
+                        // Section 0: Songs (when searching)
+                        if (uiState.searchQuery.isNotBlank() && uiState.tracks.isNotEmpty()) {
+                            item(key = "section_songs_header") {
+                                SectionHeader(
+                                    title = "Songs",
+                                    count = uiState.tracks.size,
+                                    colors = colors
+                                )
+                            }
+                            items(
+                                items = uiState.tracks,
+                                key = { "track_${it.id}" }
+                            ) { track ->
+                                TrackItemRow(
+                                    track = track,
+                                    serverUrl = viewModel.serverUrl,
+                                    token = viewModel.token,
+                                    isPlayingThisTrack = playbackState.currentTrack?.id == track.id,
+                                    onClick = { viewModel.playTrack(track) },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                                )
+                            }
+                            item(key = "section_songs_spacer") {
+                                Spacer(modifier = Modifier.height(20.dp))
+                            }
+                        }
+
                         // Section 1: Artists (Horizontal carousel)
                         if (uiState.artists.isNotEmpty()) {
                             item(key = "section_artists_header") {
@@ -401,7 +430,7 @@ private fun DiscoverSearchBar(
         ) {
             if (searchQuery.isEmpty()) {
                 Text(
-                    text = "Search artists, playlists...",
+                    text = "Search songs, artists, playlists...",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.textMuted,
                     fontSize = 14.sp
@@ -420,7 +449,7 @@ private fun DiscoverSearchBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics {
-                        contentDescription = "Search artists and playlists"
+                        contentDescription = "Search songs, artists and playlists"
                     }
             )
         }
@@ -979,4 +1008,23 @@ private fun DiscoverEmptyCatalogState(
             )
         }
     }
+}
+
+@Composable
+fun TrackRowItem(
+    track: Track,
+    serverUrl: String = "",
+    token: String? = null,
+    isPlayingThisTrack: Boolean = false,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    TrackItemRow(
+        track = track,
+        serverUrl = serverUrl,
+        token = token,
+        isPlayingThisTrack = isPlayingThisTrack,
+        onClick = onClick,
+        modifier = modifier
+    )
 }

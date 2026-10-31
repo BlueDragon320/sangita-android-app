@@ -64,6 +64,23 @@ class DiscoverViewModelTest {
         )
     )
 
+    private val testTracks = listOf(
+        Track(
+            id = "track_1",
+            title = "Karma Police",
+            artist = "Radiohead",
+            album = "OK Computer",
+            playlist = "Rock Classics"
+        ),
+        Track(
+            id = "track_2",
+            title = "Comfortably Numb",
+            artist = "Pink Floyd",
+            album = "The Wall",
+            playlist = "Rock Classics"
+        )
+    )
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -73,6 +90,7 @@ class DiscoverViewModelTest {
         coEvery { musicRepository.getArtistsList() } returns Result.success(testArtists)
         coEvery { musicRepository.getFolderPlaylists() } returns Result.success(testFolderPlaylists)
         coEvery { musicRepository.getCommunityPlaylists() } returns Result.success(testCommunityPlaylists)
+        every { musicRepository.observeAllTracks() } returns flowOf(testTracks)
     }
 
     @After
@@ -242,5 +260,180 @@ class DiscoverViewModelTest {
 
         val state = viewModel.uiState.value
         assertTrue(state.isOffline)
+    }
+
+    @Test
+    fun `onSearchQueryChange with exact substring matches song title and populates tracks`() = runTest {
+        val viewModel = DiscoverViewModel(
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            connectivityObserver = connectivityObserver
+        )
+        advanceUntilIdle()
+
+        viewModel.onSearchQueryChange("Karma")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Karma", state.searchQuery)
+        assertEquals(1, state.tracks.size)
+        assertEquals("Karma Police", state.tracks[0].title)
+    }
+
+    @Test
+    fun `onSearchQueryChange with sequential subsequence matches song and populates tracks`() = runTest {
+        val viewModel = DiscoverViewModel(
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            connectivityObserver = connectivityObserver
+        )
+        advanceUntilIdle()
+
+        // "krma" is a subsequence of "Karma"
+        viewModel.onSearchQueryChange("krma")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.tracks.size)
+        assertEquals("Karma Police", state.tracks[0].title)
+    }
+
+    @Test
+    fun `onSearchQueryChange with individual letters multiset matches song and populates tracks`() = runTest {
+        val viewModel = DiscoverViewModel(
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            connectivityObserver = connectivityObserver
+        )
+        advanceUntilIdle()
+
+        // "rmak" contains characters of "karma" scrambled
+        viewModel.onSearchQueryChange("rmak")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.tracks.size)
+        assertEquals("Karma Police", state.tracks[0].title)
+    }
+
+    @Test
+    fun `onSearchQueryChange with token matching matches across multiple fields`() = runTest {
+        val viewModel = DiscoverViewModel(
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            connectivityObserver = connectivityObserver
+        )
+        advanceUntilIdle()
+
+        // "radio police": "radio" matches artist "Radiohead", "police" matches title "Karma Police"
+        viewModel.onSearchQueryChange("radio police")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.tracks.size)
+        assertEquals("Karma Police", state.tracks[0].title)
+
+        // If one token does not match any field, whole query fails
+        viewModel.onSearchQueryChange("radio nonexistent")
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.tracks.isEmpty())
+    }
+
+    @Test
+    fun `empty search state condition correctly respects song results`() = runTest {
+        val viewModel = DiscoverViewModel(
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            connectivityObserver = connectivityObserver
+        )
+        advanceUntilIdle()
+
+        // "Numb" only matches the song "Comfortably Numb", not any artist or playlist
+        viewModel.onSearchQueryChange("Numb")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.artists.isEmpty())
+        assertTrue(state.folderPlaylists.isEmpty())
+        assertTrue(state.communityPlaylists.isEmpty())
+        assertEquals(1, state.tracks.size)
+        assertEquals("Comfortably Numb", state.tracks[0].title)
+
+        // The empty search state condition in DiscoverScreen evaluates to false
+        val isEmptySearchState = state.searchQuery.isNotBlank() &&
+            state.artists.isEmpty() &&
+            state.folderPlaylists.isEmpty() &&
+            state.communityPlaylists.isEmpty() &&
+            state.tracks.isEmpty()
+        assertFalse(isEmptySearchState)
+    }
+
+    @Test
+    fun `blank search query resets tracks to empty`() = runTest {
+        val viewModel = DiscoverViewModel(
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            connectivityObserver = connectivityObserver
+        )
+        advanceUntilIdle()
+
+        viewModel.onSearchQueryChange("Karma")
+        assertEquals(1, viewModel.uiState.value.tracks.size)
+
+        viewModel.onSearchQueryChange("")
+        assertTrue(viewModel.uiState.value.tracks.isEmpty())
+    }
+
+    @Test
+    fun `playTrack delegates to playbackController with queue`() = runTest {
+        val viewModel = DiscoverViewModel(
+            musicRepository = musicRepository,
+            playbackController = playbackController,
+            connectivityObserver = connectivityObserver
+        )
+        advanceUntilIdle()
+
+        viewModel.onSearchQueryChange("Karma")
+        advanceUntilIdle()
+
+        val track = viewModel.uiState.value.tracks.first()
+        viewModel.playTrack(track)
+        advanceUntilIdle()
+
+        verify {
+            playbackController.playTrack(track, listOf(track))
+        }
+    }
+
+    @Test
+    fun `matchIndividualLetters behaves as expected across all matching strategies`() {
+        // Blank query
+        assertTrue(matchIndividualLetters("", "Radiohead"))
+        assertTrue(matchIndividualLetters("   ", "Radiohead"))
+
+        // Null/empty fields
+        assertFalse(matchIndividualLetters("query", null, null))
+
+        // a) Exact substring match (case-insensitive)
+        assertTrue(matchIndividualLetters("Radio", "Radiohead"))
+        assertTrue(matchIndividualLetters("head", "Radiohead"))
+        assertTrue(matchIndividualLetters("dio", "Radiohead"))
+
+        // b) Sequential subsequence match
+        assertTrue(matchIndividualLetters("rdoh", "Radiohead"))
+        assertTrue(matchIndividualLetters("krma", "Karma Police"))
+
+        // c) Individual letter multiset match
+        assertTrue(matchIndividualLetters("headradio", "Radiohead"))
+        assertTrue(matchIndividualLetters("plkrma", "Karma Police"))
+        assertTrue(matchIndividualLetters("aa", "Radiohead")) // "Radiohead" has two 'a's
+        assertFalse(matchIndividualLetters("aaa", "Radiohead")) // "Radiohead" does NOT have three 'a's
+
+        // d) Token matching
+        assertTrue(matchIndividualLetters("radio police", "Karma Police", "Radiohead"))
+        assertFalse(matchIndividualLetters("radio police queen", "Karma Police", "Radiohead"))
+
+        // Non-matching query
+        assertFalse(matchIndividualLetters("xyz123", "Karma Police", "Radiohead"))
     }
 }

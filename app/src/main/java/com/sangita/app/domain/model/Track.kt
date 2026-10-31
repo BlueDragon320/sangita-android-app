@@ -22,6 +22,9 @@ data class Track(
     val isAvailable: Boolean = true
 )
 
+val Track.path: String
+    get() = id
+
 enum class DownloadStatus {
     IDLE, QUEUED, DOWNLOADING, COMPLETED, FAILED
 }
