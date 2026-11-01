@@ -14,8 +14,8 @@ android {
         applicationId = "com.sangita.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.2-beta"
+        versionCode = 5
+        versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
