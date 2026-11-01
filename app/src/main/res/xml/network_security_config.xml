@@ -1,9 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+    <!-- By default, disallow cleartext (HTTP) traffic across all public and remote endpoints -->
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
             <certificates src="user" />
         </trust-anchors>
     </base-config>
+
+    <!--
+      Permit cleartext traffic only for trusted local loopback, emulator gateways,
+      and local/home private network domains for self-hosted instances.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Loopback and Android Emulators -->
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">10.0.3.2</domain>
+
+        <!-- Local mDNS and private LAN top-level domains -->
+        <domain includeSubdomains="true">local</domain>
+        <domain includeSubdomains="true">lan</domain>
+        <domain includeSubdomains="true">home.arpa</domain>
+        <domain includeSubdomains="true">home</domain>
+        <domain includeSubdomains="true">internal</domain>
+        <domain includeSubdomains="true">intranet</domain>
+        <domain includeSubdomains="true">fritz.box</domain>
+    </domain-config>
 </network-security-config>
