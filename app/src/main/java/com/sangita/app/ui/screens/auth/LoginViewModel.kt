@@ -33,7 +33,7 @@ class LoginViewModel(
     private val _uiState = MutableStateFlow(
         LoginUiState(
             serverUrl = userPreferences.getServerUrl(),
-            username = userPreferences.getUsername() ?: "",
+            username = userPreferences.getUsername() ?: userPreferences.getLastUsername(),
             isLoggedIn = !userPreferences.getToken().isNullOrBlank()
         )
     )

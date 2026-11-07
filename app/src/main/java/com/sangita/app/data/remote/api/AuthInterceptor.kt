@@ -17,6 +17,12 @@ class AuthInterceptor(private val userPreferences: UserPreferences) : Intercepto
         }
 
         val request = requestBuilder.build()
-        return chain.proceed(request)
+        val response = chain.proceed(request)
+
+        if (response.code == 401 && !original.url.encodedPath.endsWith("/api/login")) {
+            userPreferences.clearAuth()
+        }
+
+        return response
     }
 }

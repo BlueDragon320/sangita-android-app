@@ -7,6 +7,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.ViewModelStoreOwner
@@ -128,8 +130,17 @@ fun SangitaNavGraph(
     app: SangitaApplication
 ) {
     val container = app.container
+    val token by container.userPreferences.tokenFlow.collectAsState()
     val hasToken = !container.userPreferences.getToken().isNullOrBlank()
     val startDestination = if (hasToken) Screen.Home.route else Screen.Login.route
+
+    LaunchedEffect(token) {
+        if (token.isNullOrBlank() && navController.currentDestination?.route != null && navController.currentDestination?.route != Screen.Login.route) {
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     NavHost(
         navController = navController,

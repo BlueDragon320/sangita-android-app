@@ -395,7 +395,13 @@ class LibraryViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _uiState.update { it.copy(syncError = "Could not sync. Check your connection and try again.") }
+                val isAuthError = e.message?.contains("401") == true || e.message?.contains("Unauthorized", ignoreCase = true) == true
+                val message = if (isAuthError) {
+                    "Session expired. Please sign in again."
+                } else {
+                    "Could not sync. Check your connection and try again."
+                }
+                _uiState.update { it.copy(syncError = message) }
             } finally {
                 _uiState.update { it.copy(isSyncing = false) }
             }

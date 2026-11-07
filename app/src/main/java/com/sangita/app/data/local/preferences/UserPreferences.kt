@@ -16,7 +16,7 @@ open class UserPreferences(context: Context? = null) {
     private val _serverUrlFlow = MutableStateFlow(getServerUrl())
     val serverUrlFlow: StateFlow<String> = _serverUrlFlow.asStateFlow()
 
-    private val _tokenFlow = MutableStateFlow(getToken())
+    private val _tokenFlow = MutableStateFlow<String?>(null)
     val tokenFlow: StateFlow<String?> = _tokenFlow.asStateFlow()
 
     private val _usernameFlow = MutableStateFlow(getUsername())
@@ -38,6 +38,12 @@ open class UserPreferences(context: Context? = null) {
         prefs?.getStringSet(KEY_SAVED_PLAYLISTS, null)?.let {
             _savedPlaylistIdsFlow.value = it.toSet()
         }
+        val storedToken = prefs?.getString(KEY_TOKEN, null)
+        if (storedToken != null && isTokenExpired(storedToken)) {
+            clearAuth()
+        } else {
+            _tokenFlow.value = storedToken
+        }
     }
 
     open fun getServerUrl(): String {
@@ -52,7 +58,12 @@ open class UserPreferences(context: Context? = null) {
     }
 
     open fun getToken(): String? {
-        return prefs?.getString(KEY_TOKEN, null) ?: _tokenFlow?.value
+        val token = prefs?.getString(KEY_TOKEN, null) ?: _tokenFlow.value
+        if (token != null && isTokenExpired(token)) {
+            clearAuth()
+            return null
+        }
+        return token
     }
 
     open fun setToken(token: String?) {
@@ -65,8 +76,16 @@ open class UserPreferences(context: Context? = null) {
     }
 
     open fun setUsername(username: String?) {
-        prefs?.edit()?.putString(KEY_USERNAME, username)?.apply()
+        val editor = prefs?.edit()?.putString(KEY_USERNAME, username)
+        if (!username.isNullOrBlank()) {
+            editor?.putString(KEY_LAST_USERNAME, username)
+        }
+        editor?.apply()
         _usernameFlow.value = username
+    }
+
+    open fun getLastUsername(): String {
+        return prefs?.getString(KEY_LAST_USERNAME, null) ?: ""
     }
 
     open fun getAccountKey(): String {
@@ -154,10 +173,39 @@ open class UserPreferences(context: Context? = null) {
         _savedPlaylistIdsFlow.value = emptySet()
     }
 
+    open fun isTokenExpired(token: String?): Boolean {
+        if (token.isNullOrBlank()) return true
+        return try {
+            val parts = token.split(".")
+            if (parts.size != 2) return false
+            var base64Part = parts[0]
+            while (base64Part.length % 4 != 0) {
+                base64Part += "="
+            }
+            val decodedBytes = try {
+                java.util.Base64.getUrlDecoder().decode(base64Part)
+            } catch (_: Exception) {
+                java.util.Base64.getDecoder().decode(base64Part)
+            }
+            val jsonStr = String(decodedBytes, Charsets.UTF_8)
+            val expIdx = jsonStr.indexOf("\"exp\":")
+            if (expIdx != -1) {
+                val numStr = jsonStr.substring(expIdx + 6).trim().takeWhile { it.isDigit() }
+                val expSec = numStr.toLongOrNull() ?: return false
+                (System.currentTimeMillis() / 1000) >= expSec
+            } else {
+                false
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     companion object {
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_TOKEN = "auth_token"
         private const val KEY_USERNAME = "username"
+        private const val KEY_LAST_USERNAME = "last_username"
         private const val KEY_ROLE = "user_role"
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_THEME = "app_theme"
