@@ -10,6 +10,7 @@ import com.sangita.app.domain.model.Track
 import com.sangita.app.domain.repository.MusicRepository
 import com.sangita.app.domain.repository.SyncRepository
 import kotlinx.coroutines.CancellationException
+import com.sangita.app.sync.IncompleteSyncException
 import com.sangita.app.download.SangitaDownloadManager
 import com.sangita.app.player.PlaybackController
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -186,7 +187,13 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, syncError = null) }
             try {
-                syncRepository.syncPendingActions().getOrThrow()
+                // IncompleteSyncException means some queue items failed/are pending —
+                // that's a background retry situation, not a user-facing error.
+                // We still proceed to refreshPlaylists so the UI stays up to date.
+                val syncResult = syncRepository.syncPendingActions()
+                if (syncResult.isFailure && syncResult.exceptionOrNull() !is IncompleteSyncException) {
+                    syncResult.getOrThrow()
+                }
                 musicRepository.refreshPlaylists().getOrThrow()
                 loadHomeData(force = true)
             } catch (e: CancellationException) {
